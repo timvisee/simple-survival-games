@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
+	<classpathentry kind="lib" path="C:/Users/Tim/Documents/Eclipse Projects/CraftBukkit Plugins/JAR LIBRARIES/Bukkit/bukkit-1.4.6-R0.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Tim/Documents/Eclipse Projects/CraftBukkit Plugins/JAR LIBRARIES/Permissions plugins/bPermissions/v2.9.24/bpermissions.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Tim/Documents/Eclipse Projects/CraftBukkit Plugins/JAR LIBRARIES/Permissions plugins/Essentials Group Manager/v2.8.4/EssentialsGroupManager.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Tim/Documents/Eclipse Projects/CraftBukkit Plugins/JAR LIBRARIES/Permissions plugins/Permissions/v3.1.6/Permissions.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Tim/Documents/Eclipse Projects/CraftBukkit Plugins/JAR LIBRARIES/Permissions plugins/PermissionsEx/v1.19.3/PermissionsEx.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Tim/Documents/Eclipse Projects/CraftBukkit Plugins/JAR LIBRARIES/Permissions plugins/zPermissions/v0.9.14/zPermissions-0.9.14.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Tim/Documents/Eclipse Projects/CraftBukkit Plugins/JAR LIBRARIES/Vault/v1.2.19/Vault.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

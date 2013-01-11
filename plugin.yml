@@ -1,0 +1,26 @@
+name: SimpleSurvivalGames
+description: 'Simple Survival Games plugin'
+main: com.timvisee.simplesurvivalgames.SimpleSurvivalGames
+version: 1.3.5.2
+author: timvisee
+website: http://timvisee.com/
+softdepend: [Vault, TVNLib] #hack to fix trove errors
+commands:
+  simplesurvivalgames:
+    description: Simple Survival Games command
+    usage: /simplesurvivalgames <arguments>
+  simplehungergames:
+    description: Simple Survival Games command
+    usage: /simplehungergames <arguments>
+  ssg:
+    description: Simple Survival Games command
+    usage: /ssg <arguments>
+  shg:
+    description: Simple Survival Games command
+    usage: /shg <arguments>
+  sg:
+    description: Simple Survival Games command
+    usage: /sg <arguments>
+  hg:
+    description: Simple Survival Games command
+    usage: /hg <arguments>
