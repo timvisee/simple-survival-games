@@ -1,4 +1,4 @@
-package com.timvisee.simplesurvivalgames.arena;
+package com.timvisee.simplesurvivalgames.arena.forcefield;
 
 import org.bukkit.Material;
 import org.bukkit.block.Block;

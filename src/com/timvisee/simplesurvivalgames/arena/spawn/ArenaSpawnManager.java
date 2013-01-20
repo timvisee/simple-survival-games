@@ -1,4 +1,4 @@
-package com.timvisee.simplesurvivalgames.arena;
+package com.timvisee.simplesurvivalgames.arena.spawn;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -6,6 +6,8 @@ import java.util.Random;
 
 import com.timvisee.simplesurvivalgames.SSGLocation;
 import com.timvisee.simplesurvivalgames.SimpleSurvivalGames;
+import com.timvisee.simplesurvivalgames.arena.Arena;
+import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayer;
 
 public class ArenaSpawnManager {
 	
@@ -42,8 +44,8 @@ public class ArenaSpawnManager {
 	 * @param loc the location of the spawn
 	 * @return the new ArenaSpawn
 	 */
-	public ArenaSpawn addSpawn(String name, SSGLocation loc) {
-		ArenaSpawn newSpawn = new ArenaSpawn(this.arena, name, loc);
+	public ArenaSpawn addSpawn(SSGLocation loc) {
+		ArenaSpawn newSpawn = new ArenaSpawn(this.arena, loc);
 		this.spawns.add(newSpawn);
 		return newSpawn;
 	}
@@ -185,6 +187,14 @@ public class ArenaSpawnManager {
 	 */
 	public boolean removeSpawn(ArenaSpawn spawn) {
 		return this.spawns.remove(spawn);
+	}
+	
+	/**
+	 * Remove a spawn from this arena
+	 * @param index the index
+	 */
+	public void removeSpawn(int index) {
+		this.spawns.remove(index);
 	}
 	
 	/**

@@ -27,8 +27,16 @@ public class SSGLocation {
 		this.world = world.getName();
 	}
 	
-	public SSGLocation(String worldName) {
-		this.world = worldName;
+	public SSGLocation(String locationString) {
+		if(locationString.trim().equals(""))
+			return;
+		String[] parts = locationString.trim().split(";");
+		this.world = parts[0];
+		this.x = Double.parseDouble(parts[1]);
+		this.y = Double.parseDouble(parts[2]);
+		this.z = Double.parseDouble(parts[3]);
+		this.yaw = Float.parseFloat(parts[4]);
+		this.pitch = Float.parseFloat(parts[5]);
 	}
 	
 	public SSGLocation(World world, double x, double y, double z) {
@@ -163,5 +171,17 @@ public class SSGLocation {
 	
 	public SSGLocation clone() {
 		return new SSGLocation(getWorldName(), getX(), getY(), getZ(), getYaw(), getPitch());
+	}
+	
+	/**
+	 * Convert the location into a string
+	 */
+	public String toString() {
+		return this.world + ";" +
+				String.valueOf(this.x) + ";" +
+				String.valueOf(this.y) + ";" +
+				String.valueOf(this.z) + ";" +
+				String.valueOf(this.yaw) + ";" +
+				String.valueOf(this.pitch);
 	}
 }

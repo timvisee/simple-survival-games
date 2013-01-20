@@ -1,14 +1,19 @@
-package com.timvisee.simplesurvivalgames.arena;
+package com.timvisee.simplesurvivalgames.arena.player;
 
 import java.util.Arrays;
 import java.util.List;
 
 import org.bukkit.Effect;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.Vector;
 
 import com.timvisee.simplesurvivalgames.SimpleSurvivalGames;
+import com.timvisee.simplesurvivalgames.arena.Arena;
+import com.timvisee.simplesurvivalgames.arena.ArenaState;
+import com.timvisee.simplesurvivalgames.arena.spawn.ArenaSpawn;
 
 public class ArenaPlayer {
 	
@@ -21,9 +26,16 @@ public class ArenaPlayer {
 	private boolean voted = false;
 	private int roundKills = 0;
 	
-	// Original player spawn and inventory
+	// Original player state
 	private Location origLoc;
+	private int origHealth = -1;
+	private int origFood = -1;
+	private int origExp = -1;
+	private GameMode origGamemode = GameMode.SURVIVAL;
+	private boolean origAllowFlying = false;
+	private boolean origFlying = false;
 	private List<ItemStack> origInv = null;
+	private List<ItemStack> origInvArmor = null;
 	
 	/**
 	 * Constructor
@@ -31,8 +43,7 @@ public class ArenaPlayer {
 	 */
 	public ArenaPlayer(Player p) {
 		this.p = p;
-		this.origLoc = p.getLocation();
-		this.origInv = Arrays.asList(p.getInventory().getContents());
+		storePlayerState();
 	}
 	
 	/**
@@ -42,8 +53,8 @@ public class ArenaPlayer {
 	 */
 	public ArenaPlayer(Player p, Location origLoc) {
 		this.p = p;
+		storePlayerState();
 		this.origLoc = origLoc;
-		this.origInv = Arrays.asList(p.getInventory().getContents());
 	}
 	
 	/**
@@ -52,6 +63,105 @@ public class ArenaPlayer {
 	 */
 	public Player getPlayer() {
 		return this.p;
+	}
+	
+	/**
+	 * Store the player state
+	 */
+	public void storePlayerState() {
+		storePlayerState(true, true, true, true, true, true, true);
+	}
+	
+	/**
+	 * Store the player state
+	 * @param loc store the location
+	 * @param health store the health
+	 * @param food store the food
+	 * @param exp store the Exp
+	 * @param gamemode store the gamemode
+	 * @param fly store the fly
+	 * @param inv store the inventory
+	 */
+	public void storePlayerState(boolean loc, boolean health, boolean food, boolean exp, boolean gamemode, boolean fly, boolean inv) {
+		// Store the location
+		if(loc)
+			storeLocation();
+
+		// Store the health
+		if(health)
+			storeHealth();
+		
+		// Store the food
+		if(food)
+			storeFood();
+		
+		// Store the Exp
+		if(exp)
+			storeExp();
+		
+		// Store the gamemode
+		if(gamemode)
+			storeGamemode();
+		
+		// Store the FlyMode
+		if(fly) {
+			storeAllowFlying();
+			storeFlying();
+		}
+		
+		// Store the inventory
+		if(inv)
+			storeInventory();
+	}
+	
+	/**
+	 * Revert the player state
+	 */
+	public void revertPlayerState() {
+		revertPlayerState(true, true, true, true, true, true, true);
+	}
+	
+	/**
+	 * Revert the player state
+	 * @param loc refert it's location
+	 * @param health revert it's health
+	 * @param exp revert it's Exp
+	 * @param gamemode revert it's gamemode
+	 * @param flymode revert it's flymode
+	 * @param inv revert it's inventory
+	 */
+	public void revertPlayerState(boolean loc, boolean health, boolean food, boolean exp, boolean gamemode, boolean flymode, boolean inv) {
+		// Revert the location
+		if(loc && isLocationStored()) {
+			teleportToStoredLocation();
+			this.p.setVelocity(new Vector(0, 0, 0));
+		}
+
+		// Revert the health
+		if(health && isOriginalHealthStored())
+			this.p.setHealth(getOriginalHealth());
+		
+		// Revert the food
+		if(food && isOriginalFoodStored())
+			this.p.setFoodLevel(getOriginalFood());
+		
+		// Revert the Exp
+		if(exp && isOriginalExpStored())
+			this.p.setTotalExperience(getOriginalExp());
+		
+		// Revert the gamemode
+		if(gamemode)
+			this.p.setGameMode(getOriginalGamemode());
+		
+		// Revert the FlyMode
+		if(flymode) {
+			this.p.setAllowFlight(getOriginalAllowFlying());
+			this.p.setFlying(getOriginalFlying());
+		}
+		
+		// Revert the inventory
+		if(inv && isInventoryStored())
+			revertStoredInventory();
 	}
 	
 	/**
@@ -149,6 +259,14 @@ public class ArenaPlayer {
 			return arena.getArenaCuboid().isInsideCuboid(this);
 		else if(isInLobby())
 			return arena.getSpectatorsCuboid().isInsideCuboid(this);
+		else if(isSpectator()) {
+			if(getArena().isSpectatorsCuboidSet()) {
+				return getArena().getSpectatorsCuboid().isInsideCuboid(this);
+			} else if(getArena().isArenaCuboidSet()) {
+				return getArena().getArenaCuboid().isInsideCuboid(this);
+			} else
+				return true;
+		}
 		
 		return false;
 	}
@@ -239,7 +357,22 @@ public class ArenaPlayer {
 	 * @param voted
 	 */
 	public void setVoted(boolean voted) {
+		setVoted(voted, true);
+	}
+	
+	/**
+	 * Set if the player has voted
+	 * @param voted
+	 * @param startArenaIfReady check if the arena is ready, if so start the arena
+	 */
+	public void setVoted(boolean voted, boolean startArenaIfReady) {
+		// Update if the player voted
 		this.voted = voted;
+		
+		// Start the arena if it's ready
+		if(startArenaIfReady)
+			if(getArena().isReadyToStart())
+				getArena().startRound();
 	}
 	
 	/**
@@ -339,6 +472,238 @@ public class ArenaPlayer {
 	}
 	
 	/**
+	 * Store the health of the player
+	 */
+	public void storeHealth() {
+		setOriginalHealth(this.p.getHealth());
+	}
+	
+	/**
+	 * Is the original life of the player stored
+	 * @return false if not
+	 */
+	public boolean isOriginalHealthStored() {
+		return (this.origHealth >= 0);
+	}
+	
+	/**
+	 * Get the original life of the player
+	 * @return original life of the player
+	 */
+	public int getOriginalHealth() {
+		return this.origHealth;
+	}
+	
+	/**
+	 * Set the original life of the player
+	 * @param origLife original life of the player
+	 */
+	public void setOriginalHealth(int origLife) {
+		this.origHealth = Math.max(origLife, -1);
+	}
+	
+	/**
+	 * Reset the original life of the player
+	 */
+	public void resetOriginalHealth() {
+		this.origHealth = -1;
+	}
+	
+	/**
+	 * Store the food level of the player
+	 */
+	public void storeFood() {
+		setOriginalFood(this.p.getFoodLevel());
+	}
+	
+	/**
+	 * Is the original food level of the player stored
+	 * @return false if not
+	 */
+	public boolean isOriginalFoodStored() {
+		return (this.origFood >= 0);
+	}
+	
+	/**
+	 * Get the original food level of the player
+	 * @return get original food level
+	 */
+	public int getOriginalFood() {
+		return this.origFood;
+	}
+	
+	/**
+	 * Set the original food level of the player
+	 * @param origFood new original food level
+	 */
+	public void setOriginalFood(int origFood) {
+		this.origFood = Math.max(origFood, 0);
+	}
+	
+	/**
+	 * Reset the original food level of the player
+	 */
+	public void resetOriginalFood() {
+		this.origFood = -1;
+	}
+	
+	/**
+	 * Store the Exp of the player
+	 */
+	public void storeExp() {
+		setOriginalExp(this.p.getTotalExperience());
+	}
+	
+	/**
+	 * Is the original Exp of the player stored
+	 * @return false if not
+	 */
+	public boolean isOriginalExpStored() {
+		return (this.origExp >= 0);
+	}
+	
+	/**
+	 * Get the original exp of the player
+	 * @return original exp
+	 */
+	public int getOriginalExp() {
+		return this.origExp;
+	}
+	
+	/**
+	 * Set the original exp of the player
+	 * @param origExp original exp
+	 */
+	public void setOriginalExp(int origExp) {
+		this.origExp = Math.max(origExp, -1);
+	}
+	
+	/**
+	 * Reset the original exp of the player
+	 */
+	public void resetOriginalExp() {
+		this.origExp = -1;
+	}
+	
+	/**
+	 * Store the original gamemode of the player
+	 */
+	public void storeGamemode() {
+		setOriginalGamemode(this.p.getGameMode());
+	}
+	
+	/**
+	 * Get the original gamemode of the player
+	 * @return original gamemode
+	 */
+	public GameMode getOriginalGamemode() {
+		return this.origGamemode;
+	}
+	
+	/**
+	 * Set the original gamemode of the player
+	 * @param origGamemode original gamemode
+	 */
+	public void setOriginalGamemode(GameMode origGamemode) {
+		this.origGamemode = origGamemode;
+	}
+	
+	/**
+	 * Reset the original gamemode of the player
+	 */
+	public void resetOriginalGamemode() {
+		this.origGamemode = GameMode.SURVIVAL;
+	}
+	
+	/**
+	 * Store the allow flying
+	 */
+	public void storeAllowFlying() {
+		this.origAllowFlying = this.p.getAllowFlight();
+	}
+	
+	/**
+	 * Get the original allow flying
+	 * @return original allow flying
+	 */
+	public boolean getOriginalAllowFlying() {
+		return this.origAllowFlying;
+	}
+	
+	/**
+	 * Set the original allow flying
+	 * @param origAllowFlying original allow flying
+	 */
+	public void setOriginalAllowFlying(boolean origAllowFlying) {
+		this.origAllowFlying = origAllowFlying;
+	}
+	
+	/**
+	 * Reset the original allow flying
+	 */
+	public void resetOriginalAllowFlying() {
+		this.origAllowFlying = false;
+	}
+	
+	/**
+	 * Store the fly mode of the player
+	 */
+	public void storeFlying() {
+		setOriginalFlying(this.p.isFlying());
+	}
+	
+	/**
+	 * Get the original fly mode of the player
+	 * @return original fly mode
+	 */
+	public boolean getOriginalFlying() {
+		return this.origFlying;
+	}
+	
+	/**
+	 * Set the original fly mode of the player
+	 * @param origFlying original fly mode
+	 */
+	public void setOriginalFlying(boolean origFlying) {
+		this.origFlying = origFlying;
+	}
+	
+	/**
+	 * Reset the original fly mode
+	 */
+	public void resetOriginalFlying() {
+		this.origFlying = true;
+	}
+	
+	/**
+	 * Store the current player inventory<br>
+	 * A previous stored inventory will be overwritten!
+	 */
+	public void storeInventory() {
+		storeInventory(true);
+	}
+	
+	/**
+	 * Store the current player inventory
+	 * @param overwrite should previous stored inventories being overwritten
+	 */
+	public void storeInventory(boolean overwrite) {
+		storeInventory(Arrays.asList(this.p.getInventory().getContents()), Arrays.asList(this.p.getInventory().getArmorContents()), overwrite);
+	}
+
+	/**
+	 * Store a list of ItemStacks as player inventory
+	 * @param overwrite should previous stored inventories being overwritten
+	 */
+	public void storeInventory(List<ItemStack> inv, List<ItemStack> invArmor, boolean overwrite) {
+		// Make sure the inventory should be overwritten if there's stored any. If so, store the inventory
+		if(!isInventoryStored() || overwrite) {
+			this.origInv = inv;
+			this.origInvArmor = invArmor;
+		}
+	}
+	
+	/**
 	 * Get the stored inventory of the player
 	 * @return stored inventory contents list, or null if not stored
 	 */
@@ -363,39 +728,14 @@ public class ArenaPlayer {
 			return;
 		
 		// If no inventory was stored, clear the players inventory
-		if(origInv == null)
+		if(this.origInv == null)
 			p.getInventory().clear();
 		else {
-			ItemStack[] invContents = new ItemStack[]{};
-			this.origInv.toArray(invContents);
+			ItemStack[] invContents = this.origInv.toArray(new ItemStack[this.origInv.size()]);
 			p.getInventory().setContents(invContents);
+			ItemStack[] invArmorContents = this.origInvArmor.toArray(new ItemStack[this.origInvArmor.size()]);
+			p.getInventory().setArmorContents(invArmorContents);
 		}
-	}
-	
-	/**
-	 * Store the current player inventory<br>
-	 * A previous stored inventory will be overwritten!
-	 */
-	public void storeInventory() {
-		storeInventory(true);
-	}
-	
-	/**
-	 * Store the current player inventory
-	 * @param overwrite should previous stored inventories being overwritten
-	 */
-	public void storeInventory(boolean overwrite) {
-		storeInventory(Arrays.asList(this.p.getInventory().getContents()), overwrite);
-	}
-
-	/**
-	 * Store a list of ItemStacks as player inventory
-	 * @param overwrite should previous stored inventories being overwritten
-	 */
-	public void storeInventory(List<ItemStack> inv, boolean overwrite) {
-		// Make sure the inventory should be overwritten if there's stored any. If so, store the inventory
-		if(!isInventoryStored() || overwrite)
-			this.origInv = inv;
 	}
 	
 	/**

@@ -1,14 +1,29 @@
-package com.timvisee.simplesurvivalgames.arena;
+package com.timvisee.simplesurvivalgames.arena.container;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
+import org.bukkit.block.Block;
+import org.bukkit.configuration.InvalidConfigurationException;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.inventory.ItemStack;
+
 import com.timvisee.simplesurvivalgames.SSGLocation;
+import com.timvisee.simplesurvivalgames.SimpleSurvivalGames;
+import com.timvisee.simplesurvivalgames.arena.Arena;
+import com.timvisee.simplesurvivalgames.arena.container.items.ArenaContainerSetManager;
 
 public class ArenaContainerManager {
 	
 	Arena arena;
 	List<ArenaContainer> containers = new ArrayList<ArenaContainer>();
+	private ArenaContainerSetManager contentManager;
 	
 	/**
 	 * Constructor
@@ -16,6 +31,7 @@ public class ArenaContainerManager {
 	 */
 	public ArenaContainerManager(Arena arena) {
 		this.arena = arena;
+		this.contentManager = new ArenaContainerSetManager(arena);
 	}
 	
 	/**
@@ -32,7 +48,7 @@ public class ArenaContainerManager {
 	 * @return the new chest
 	 */
 	public ArenaContainer addContainer(SSGLocation loc) {
-		ArenaContainer newContainer = new ArenaContainer(loc);
+		ArenaContainer newContainer = new ArenaContainer(this.arena, loc);
 		addContainer(newContainer);
 		return newContainer;
 	}
@@ -43,6 +59,18 @@ public class ArenaContainerManager {
 	 */
 	public void addContainer(ArenaContainer container) {
 		this.containers.add(container);
+	}
+	
+	/**
+	 * Is a block an arena container block
+	 * @param b the block to check
+	 * @return false if not
+	 */
+	public boolean isContainer(Block b) {
+		for(ArenaContainer container : this.containers)
+			if(container.getBlock().equals(b))
+				return true;
+		return false;
 	}
 	
 	/**
@@ -104,13 +132,39 @@ public class ArenaContainerManager {
 	}
 	
 	/**
+	 * Remove a container
+	 * @param container the container to remove
+	 * @return false if the container wasn't found in the list
+	 */
+	public boolean removeContainer(Block container) {
+		List<ArenaContainer> remove = new ArrayList<ArenaContainer>();
+		for(ArenaContainer entry : this.containers)
+			if(entry.getBlock() != null)
+				if(entry.getBlock().equals(container))
+					remove.add(entry);
+		this.containers.removeAll(remove);
+		return (remove.size() != 0);
+	}
+	
+	/**
 	 * Refill all, or only empty container in the arena
 	 * @param onlyEmpty true to only fill empty container
 	 */
-	public void refillConatiners(boolean onlyEmpty) {
+	public void fillConatiners(boolean onlyEmpty) {
 		for(ArenaContainer container : this.containers)
 			if(!onlyEmpty || container.isEmpty())
-				container.refill();
+				container.fill();
+	}
+	/**
+	 * 
+	 * Refill all static containers, or only empty container in the arena
+	 * @param onlyEmpty true to only fill empty container
+	 */
+	public void fillStaticContainers(boolean onlyEmpty) {
+		for(ArenaContainer container : this.containers)
+			if(container instanceof ArenaStaticContainer)
+				if(!onlyEmpty || container.isEmpty())
+					container.fill();
 	}
 	
 	/**
@@ -150,5 +204,13 @@ public class ArenaContainerManager {
 	 */
 	public void clear() {
 		this.containers.clear();
+	}
+	
+	/**
+	 * Get the content manager
+	 * @return content manager
+	 */
+	public ArenaContainerSetManager getContentManager() {
+		return this.contentManager;
 	}
 }

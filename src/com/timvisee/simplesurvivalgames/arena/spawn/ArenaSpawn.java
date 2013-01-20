@@ -1,14 +1,15 @@
-package com.timvisee.simplesurvivalgames.arena;
+package com.timvisee.simplesurvivalgames.arena.spawn;
 
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 
 import com.timvisee.simplesurvivalgames.SSGLocation;
+import com.timvisee.simplesurvivalgames.arena.Arena;
+import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayer;
 
 public class ArenaSpawn {
 	
 	private Arena arena;
-	private String name;
 	private SSGLocation loc;
 	
 	/**
@@ -17,9 +18,8 @@ public class ArenaSpawn {
 	 * @param name spawn name
 	 * @param loc spawn location
 	 */
-	public ArenaSpawn(Arena arena, String name, SSGLocation loc) {
+	public ArenaSpawn(Arena arena, SSGLocation loc) {
 		this.arena = arena;
-		this.name = name;
 		this.loc = loc;
 	}
 	
@@ -29,22 +29,6 @@ public class ArenaSpawn {
 	 */
 	public Arena getArena() {
 		return this.arena;
-	}
-	
-	/**
-	 * Get the spawn's name
-	 * @return spawn name
-	 */
-	public String getName() {
-		return this.name;
-	}
-	
-	/**
-	 * Set the spawn's name
-	 * @param name new name
-	 */
-	public void setName(String name) {
-		this.name = name;
 	}
 	
 	/**
@@ -105,7 +89,7 @@ public class ArenaSpawn {
 	 * @return true if equals
 	 */
 	public boolean equals(ArenaSpawn other) {
-		return (other.getName().equals(this.getName()) &&
-				other.getArena().equals(other.getArena()));
+		return (other.getLocation().equals(this.getLocation()) &&
+				other.getArena().equals(this.getArena()));
 	}
 }

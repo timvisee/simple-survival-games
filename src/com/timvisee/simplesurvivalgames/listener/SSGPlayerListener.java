@@ -1,13 +1,16 @@
 package com.timvisee.simplesurvivalgames.listener;
 
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.block.ContainerBlock;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerBedEnterEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
@@ -22,14 +25,21 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerShearEntityEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
 import com.timvisee.simplesurvivalgames.SSGLocation;
+import com.timvisee.simplesurvivalgames.SSGPlayer;
+import com.timvisee.simplesurvivalgames.SSGPlayer.PlayerMode;
+import com.timvisee.simplesurvivalgames.SSGPlayerManager;
 import com.timvisee.simplesurvivalgames.SimpleSurvivalGames;
 import com.timvisee.simplesurvivalgames.arena.Arena;
 import com.timvisee.simplesurvivalgames.arena.ArenaCuboid;
 import com.timvisee.simplesurvivalgames.arena.ArenaManager;
-import com.timvisee.simplesurvivalgames.arena.ArenaPlayer;
+import com.timvisee.simplesurvivalgames.arena.container.ArenaContainerManager;
+import com.timvisee.simplesurvivalgames.arena.container.ArenaRandomContainer;
+import com.timvisee.simplesurvivalgames.arena.container.ArenaStaticContainer;
+import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayer;
 
 public class SSGPlayerListener implements Listener {
 	
@@ -53,6 +63,18 @@ public class SSGPlayerListener implements Listener {
 					p.sendMessage(ChatColor.DARK_RED + "You aren't tired enough to enter the bed inside the lobby of an arena!");
 				}
 			}
+			
+			// The player may not sleep
+			if(ap.isPlaying()) {
+				event.setCancelled(true);
+				p.sendMessage(ChatColor.DARK_RED + "You can't sleep while in the arena!");
+			}
+			
+			// Is the player an spectators
+			if(ap.isSpectator()) {
+				event.setCancelled(true);
+				ap.sendMessage(ChatColor.DARK_RED + "You can't sleep while spectating!");
+			}
 		}
 	}
 	
@@ -60,6 +82,8 @@ public class SSGPlayerListener implements Listener {
 	public void onPlayerBucketEmptyEvent(PlayerBucketEmptyEvent event) {
 		Player p = event.getPlayer();
 		ArenaManager am = SimpleSurvivalGames.instance.getArenaManager();
+		
+		// TODO: Is the player allowed to place down water
 		
 		// Is the current player playing
 		if(am.isInArena(p)) {
@@ -76,6 +100,12 @@ public class SSGPlayerListener implements Listener {
 					p.sendMessage(ChatColor.DARK_RED + "You may not flood the lobby in the lobby of an arena!");
 				}
 			}
+
+			// Is the player an spectators
+			if(ap.isSpectator()) {
+				event.setCancelled(true);
+				ap.sendMessage(ChatColor.DARK_RED + "You can't use buckets while spectating!");
+			}
 		}
 	}
 	
@@ -83,6 +113,8 @@ public class SSGPlayerListener implements Listener {
 	public void onPlayerBucketFillEvent(PlayerBucketFillEvent event) {
 		Player p = event.getPlayer();
 		ArenaManager am = SimpleSurvivalGames.instance.getArenaManager();
+		
+		// TODO: Is the player allowed to get water
 		
 		// Is the current player playing
 		if(am.isInArena(p)) {
@@ -99,10 +131,16 @@ public class SSGPlayerListener implements Listener {
 					p.sendMessage(ChatColor.DARK_RED + "You may not dehumidify the lobby in the lobby of an arena!");
 				}
 			}
+
+			// Is the player an spectators
+			if(ap.isSpectator()) {
+				event.setCancelled(true);
+				ap.sendMessage(ChatColor.DARK_RED + "You can't use buckets while spectating!");
+			}
 		}
 	}
 	
-	@EventHandler
+	@EventHandler(priority = EventPriority.LOW)
 	public void onPlayerCommandPreprocess(PlayerCommandPreprocessEvent event) {
 		Player p = event.getPlayer();
 		String fullCommand = event.getMessage();
@@ -147,6 +185,12 @@ public class SSGPlayerListener implements Listener {
 					p.sendMessage(ChatColor.DARK_RED + "Drop parties are not allowed inside the lobby of an arena!");
 				}
 			}
+
+			// Is the player an spectators
+			if(ap.isSpectator()) {
+				event.setCancelled(true);
+				ap.sendMessage(ChatColor.DARK_RED + "Drop parties are not allowed while spectating!");
+			}
 		}
 	}
 	
@@ -185,13 +229,61 @@ public class SSGPlayerListener implements Listener {
 					p.sendMessage(ChatColor.DARK_RED + "You can't fish inside the lobby of an arena!");
 				}
 			}
+
+			// Is the player an spectators
+			if(ap.isSpectator()) {
+				event.setCancelled(true);
+				ap.sendMessage(ChatColor.DARK_RED + "You can't fish while spectating!");
+			}
 		}
 	}
 	
 	@EventHandler
 	public void onPlayerInteract(PlayerInteractEvent event) {
+		Action action = event.getAction();
+		Block b = event.getClickedBlock();
 		Player p = event.getPlayer();
 		ArenaManager am = SimpleSurvivalGames.instance.getArenaManager();
+		
+		// Disable player modes when right clicking
+		SSGPlayerManager pm = SimpleSurvivalGames.instance.getPlayerManager();
+		if(action.equals(Action.RIGHT_CLICK_AIR) || action.equals(Action.RIGHT_CLICK_BLOCK)) {
+			if(pm.containsPlayer(p)) {
+				SSGPlayer ssgPlayer = pm.getPlayer(p);
+				if(ssgPlayer.getPlayerMode().equals(PlayerMode.ADD_RANDOM_CONTAINER) ||
+						ssgPlayer.getPlayerMode().equals(PlayerMode.ADD_STATIC_CONTAINER) ||
+						ssgPlayer.getPlayerMode().equals(PlayerMode.REMOVE_CONTAINER)) {
+					ssgPlayer.setPlayerMode(PlayerMode.NORMAL);
+					p.sendMessage(ChatColor.BLUE + "Container mode disabled!");
+					event.setCancelled(true);
+					return;
+				}
+			}
+		}
+		
+		// The player may not place down tall grass using bonemeal
+		if(b != null) {
+			if(p.getItemInHand().getType().equals(Material.INK_SACK) &&
+					p.getItemInHand().getData().getData() == 15) {
+				for(Arena arena : am.getArenas()) {
+					if(arena.isArenaCuboidSet()) {
+						if(arena.getArenaCuboid().isInsideCuboid(b)) {
+							if(!arena.isInEditMode()) {
+								if(am.isInArena(p))
+									p.sendMessage(ChatColor.DARK_RED + "You can not grow tall grass inside the arena!");
+								else {
+									p.sendMessage(ChatColor.DARK_RED + "You can not grow tall grass while the arena isn't in edit mode!");
+									p.sendMessage(ChatColor.BLUE + "Use " + ChatColor.GOLD + "/sg edit true" + ChatColor.BLUE + " to enable the edit mode!");
+								}
+								event.setCancelled(true);
+								return;
+							}
+						}
+					}
+				}
+			}
+		}
+			
 		
 		// Is the current player playing
 		if(am.isInArena(p)) {
@@ -210,6 +302,106 @@ public class SSGPlayerListener implements Listener {
 					}
 				}
 			}
+
+			// Is the player an spectators
+			if(ap.isSpectator()) {
+				event.setCancelled(true);
+				ap.sendMessage(ChatColor.DARK_RED + "You can't interact with anything while spectating!");
+			}
+			
+			// Is the player playing in the arena
+			if(ap.isPlaying()) {// The player may not interact with serval blocks like repeater times
+				// Make sure the block is not null
+				if(b != null) {
+					if(b.getType().equals(Material.DIODE_BLOCK_OFF) ||
+							b.getType().equals(Material.DIODE_BLOCK_ON)) {
+						event.setCancelled(true);
+						ap.sendMessage(ChatColor.DARK_RED + "You may not change the repeater times while in the arena!");
+					}
+				}
+			}
+		} else {
+			if(pm.containsPlayer(p)) {
+				if(action.equals(Action.LEFT_CLICK_AIR) || action.equals(Action.LEFT_CLICK_BLOCK)) {
+					SSGPlayer ssgPlayer = pm.getPlayer(p);
+					
+					// Make sure the player does have any arena selected
+					if(!ssgPlayer.hasArenaSelected()) {
+						p.sendMessage(ChatColor.DARK_RED + "You don't have any arena selected!");
+						p.sendMessage(ChatColor.BLUE + "Use " + ChatColor.GOLD + "/sg arena <arena>" + ChatColor.BLUE + " to select an arena!");
+						return;
+					}
+					
+					// Get the selected arena
+					Arena arena = ssgPlayer.getSelectedArena();
+					ArenaContainerManager cm = arena.getContainerManager();
+					
+					switch(ssgPlayer.getPlayerMode()) {
+					case ADD_RANDOM_CONTAINER:
+						// The block has to be an container
+						if(b.getState() instanceof ContainerBlock) { } else {
+							p.sendMessage(ChatColor.DARK_RED + "This is not a container block!");
+							event.setCancelled(true);
+							return;
+						}
+						
+						// The container may not be used yet
+						if(cm.isContainer(b)) {
+							p.sendMessage(ChatColor.DARK_RED + "This conainer is already used!");
+							event.setCancelled(true);
+							return;
+						}
+						
+						// Add the container
+						cm.addContainer(new ArenaRandomContainer(arena, b));
+						am.save();
+						p.sendMessage(ChatColor.BLUE + "This block is now a random container!");
+						event.setCancelled(true);
+						return;
+					
+					case ADD_STATIC_CONTAINER:
+						// The block has to be an container
+						if(b.getState() instanceof ContainerBlock) { } else {
+							p.sendMessage(ChatColor.DARK_RED + "This is not a container block!");
+							event.setCancelled(true);
+							return;
+						}
+						
+						// The container may not be used yet
+						if(cm.isContainer(b)) {
+							p.sendMessage(ChatColor.DARK_RED + "This conainer is already used!");
+							event.setCancelled(true);
+							return;
+						}
+						
+						// Add the container
+						ArenaStaticContainer staticContainer = new ArenaStaticContainer(arena, b, new ItemStack[]{});
+						staticContainer.storeCurrentContents();
+						cm.addContainer(staticContainer);
+						am.save();
+						p.sendMessage(ChatColor.BLUE + "This block is now a static container!");
+						event.setCancelled(true);
+						return;
+						
+					case REMOVE_CONTAINER:
+						// The container may not be used yet
+						if(!cm.isContainer(b)) {
+							p.sendMessage(ChatColor.DARK_RED + "This block is not a container used by the arena!");
+							event.setCancelled(true);
+							return;
+						}
+						
+						// Add the container
+						cm.removeContainer(b);
+						am.save();
+						p.sendMessage(ChatColor.BLUE + "This block is not a container anymore!");
+						event.setCancelled(true);
+						return;
+						
+					default:
+					}
+				}
+			}
 		}
 	}
 	
@@ -217,6 +409,10 @@ public class SSGPlayerListener implements Listener {
 	public void onPlayerMove(PlayerMoveEvent event) {
 		Player p = event.getPlayer();
 		ArenaManager am = SimpleSurvivalGames.instance.getArenaManager();
+		
+		// The player may not be null
+		if(p == null)
+			return;
 		
 		// Is the current player playing
 		if(am.isInArena(p)) {
@@ -235,9 +431,9 @@ public class SSGPlayerListener implements Listener {
 						// Store the entity to teleport back into the arena
 						Entity toTeleport = p;
 						
-						// Make the vehicle a player is in teleport if he is inside one
+						// Get out of a vehicle
 						if(p.isInsideVehicle())
-							toTeleport = p.getVehicle();
+							p.getVehicle().eject();
 						
 						// Set the players velocity to zero
 						toTeleport.setVelocity(new Vector(0, 0, 0));
@@ -250,6 +446,70 @@ public class SSGPlayerListener implements Listener {
 						
 						// Damage the player to take measures!
 						p.damage(4);
+					}
+				}
+			}
+			
+			// TODO: use spectator AND arena cuboid
+			// Is the player in the lobby of the arena
+			if(ap.isSpectator()) {
+				// Is the player allowed to get out of the arena cuboid
+				if(!arena.getMayLeaveArenaCuboid() && arena.getArenaCuboid().isSet()) {
+					// The player has to be inside the arena
+					if(!ap.isInArenaCuboid()) {
+						// The the new location of the player
+						Location newLoc = ap.getArena().getArenaCuboid().getNearestLocationInsideCuboid(new SSGLocation(p.getLocation()), 1).toBukkitLocation();
+						
+						// Get out of a vehicle
+						if(p.isInsideVehicle())
+							p.getVehicle().eject();
+						
+						// Set the players velocity to zero
+						p.setVelocity(new Vector(0, 0, 0));
+						
+						// Teleport the player
+						p.teleport(newLoc);
+						
+						// Send a notification message
+						p.sendMessage(ChatColor.DARK_RED + "You may not get out of the arena!");
+					}
+				}
+				
+				// The player has to be 5 above the ground so he can't block other players
+				Location loc = p.getLocation();
+				Block blockBellow = null;
+				for(int y = loc.getBlockY(); y > 0; y--) {
+					Block b = loc.getWorld().getBlockAt(loc.getBlockX(), y, loc.getBlockZ());
+					if(!b.getType().equals(Material.AIR) && blockBellow == null) {
+						blockBellow = b;
+						break;
+					}
+				}
+				if(blockBellow != null) {
+					double curY = loc.getY();
+					double surfaceY = blockBellow.getY();
+					
+					if((curY - surfaceY) < 5) {
+						p.sendMessage(ChatColor.DARK_RED + "You may not get this close to the ground!");
+						p.setVelocity(p.getVelocity().setY(0));
+						
+						Location toLoc = null;
+						for(int y = (int) (surfaceY + 6); y < 258; y++) {
+							Block b = loc.getWorld().getBlockAt(loc.getBlockX(), y, loc.getBlockZ());
+							if(b == null) {
+								toLoc = new Location(loc.getWorld(), loc.getBlockX(), y, loc.getBlockZ(), p.getLocation().getYaw(), p.getLocation().getPitch());
+								break;
+							}
+							
+							if(b.getType().equals(Material.AIR) && toLoc == null) {
+								toLoc = new Location(loc.getWorld(), loc.getBlockX(), y, loc.getBlockZ(), p.getLocation().getYaw(), p.getLocation().getPitch());
+								break;
+							}
+						}
+						if(toLoc != null) {
+							p.teleport(toLoc);
+							p.setFlying(true);
+						}
 					}
 				}
 			}
@@ -297,6 +557,10 @@ public class SSGPlayerListener implements Listener {
 				if(ap.hasAssignedAreanSpawn())
 					event.setCancelled(true);
 			}
+
+			// Is the player an spectators
+			if(ap.isSpectator())
+				event.setCancelled(true);
 		}
 	}
 	
@@ -318,9 +582,6 @@ public class SSGPlayerListener implements Listener {
 			
 			// Show a message to all players this player died
 			arena.sendMessage(ChatColor.GOLD + p.getName() + ChatColor.DARK_RED + " lost connection!");
-			
-			// TODO: Check if any player won the match
-			// TODO: Update player count in chat etc
 		}
 	}
 	
@@ -343,6 +604,12 @@ public class SSGPlayerListener implements Listener {
 					event.setCancelled(true);
 					p.sendMessage(ChatColor.DARK_RED + "It's a shame to make this sheep naked inside the lobby of an arena!");
 				}
+			}
+
+			// Is the player an spectators
+			if(ap.isSpectator()) {
+				event.setCancelled(true);
+				ap.sendMessage(ChatColor.DARK_RED + "You can't make this sheep naked while spectating!");
 			}
 		}
 	}
@@ -379,15 +646,27 @@ public class SSGPlayerListener implements Listener {
 						default:
 							// Cancel the event and show a message
 							event.setCancelled(true);
+							
+							// Get the nearest location inside the arena cuboid to teleport the player to
+							Location newLoc2 = ap.getArena().getArenaCuboid().getNearestLocationInsideCuboid(new SSGLocation(to), 1).toBukkitLocation();
+							
+							p.teleport(newLoc2);
+							
 							p.sendMessage(ChatColor.DARK_RED + "You may not teleport out of the arena!");
 						}
 					}
 					
 				} else {
 					// The player may not be teleported out of the game world
-					if(!from.getWorld().equals(to.getWorld())) {
+					if(ap.getArena().getArenaCuboid().getWorldName().equals(to.getWorld().getName())) {
 						// Cancel the event and show a status message
 						event.setCancelled(true);
+						
+						// Get the nearest location inside the arena cuboid to teleport the player to
+						Location newLoc2 = ap.getArena().getArenaCuboid().getNearestLocationInsideCuboid(new SSGLocation(to), 1).toBukkitLocation();
+						
+						p.teleport(newLoc2);
+						
 						p.sendMessage(ChatColor.DARK_RED + "You may not teleport away from an arena!");
 					}
 				}
@@ -396,11 +675,12 @@ public class SSGPlayerListener implements Listener {
 				// Is the player allowed to get out of the arena cuboid
 				if(!ap.getArena().getMayLeaveSpectatorsCuboid()) {
 					
-					ArenaCuboid specCuboid = null;
-					if(ap.getArena().isSpectatorsCuboidSet())
+					ArenaCuboid specCuboid = ap.getArena().getArenaCuboid();
+					// TODO: Finish this
+					/*if(ap.getArena().isSpectatorsCuboidSet())
 						specCuboid = ap.getArena().getSpectatorsCuboid();
 					else
-						specCuboid = ap.getArena().getArenaCuboid();
+						specCuboid = ap.getArena().getArenaCuboid();*/
 					
 					// The player may not teleport out of the arena
 					if(!specCuboid.isInsideCuboid(to)) {
@@ -410,22 +690,30 @@ public class SSGPlayerListener implements Listener {
 							// Get the nearest location inside the arena cuboid to teleport the player to
 							Location newLoc = ap.getArena().getArenaCuboid().getNearestLocationInsideCuboid(new SSGLocation(to), 1).toBukkitLocation();
 							p.teleport(newLoc);
+							p.setAllowFlight(true);
+							p.setFlying(true);
 							break;
 							
 						default:
 							// Cancel the event and show a message
 							event.setCancelled(true);
 							p.sendMessage(ChatColor.DARK_RED + "You may not teleport away from the game while spectating!");
+							p.teleport(ap.getArena().getSpectatorsSpawn().toBukkitLocation());
+							p.setAllowFlight(true);
+							p.setFlying(true);
 						}
 					}
-						
 					
 				} else {
 					// The player may not be teleported out of the game world
-					if(!from.getWorld().equals(to.getWorld())) {
+					if(!ap.getArena().getArenaCuboid().getWorldName().equals(to.getWorld().getName())) {
 						// Cancel the event and show a status message
-						event.setCancelled(true);
 						p.sendMessage(ChatColor.DARK_RED + "You may not teleport away while spectating!");
+						event.setCancelled(true);
+						
+						p.teleport(ap.getArena().getSpectatorsSpawn().toBukkitLocation());
+						p.setAllowFlight(true);
+						p.setFlying(true);
 					}
 				}
 				

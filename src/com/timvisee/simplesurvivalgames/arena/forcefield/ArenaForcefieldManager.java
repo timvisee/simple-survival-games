@@ -1,4 +1,4 @@
-package com.timvisee.simplesurvivalgames.arena;
+package com.timvisee.simplesurvivalgames.arena.forcefield;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -11,7 +11,10 @@ import org.bukkit.entity.Player;
 
 import com.timvisee.simplesurvivalgames.SSGBlockState;
 import com.timvisee.simplesurvivalgames.SSGLocation;
-import com.timvisee.simplesurvivalgames.arena.ArenaForcefieldBlock.ForcefieldBlockState;
+import com.timvisee.simplesurvivalgames.arena.Arena;
+import com.timvisee.simplesurvivalgames.arena.ArenaCuboid;
+import com.timvisee.simplesurvivalgames.arena.forcefield.ArenaForcefieldBlock.ForcefieldBlockState;
+import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayer;
 import com.timvisee.simplesurvivalgames.util.Axis3D;
 
 public class ArenaForcefieldManager {
@@ -124,7 +127,7 @@ public class ArenaForcefieldManager {
 		// the player should be playing,
 		// If not remove all his forcefield blocks and cancel the update
 		if(!ap.getArena().equals(this.arena) || (!ap.isPlaying() && !ap.isSpectator())) {
-			removeAll(ap.getPlayer());
+			removeForcefieldBlocks(ap.getPlayer());
 			// TODO: Remove blocks of kicked player
 			return;
 		}
@@ -328,7 +331,10 @@ public class ArenaForcefieldManager {
 	 * Remove all forcefield blocks used for a specific player
 	 * @param p the player to remove the blocks from
 	 */
-	public void removeAll(Player p) {
+	public void removeForcefieldBlocks(Player p) {
+		if(p == null)
+			return;
+		
 		// Get a list of forcefield blocks used for this player
 		List<ArenaForcefieldBlock> playerBlocks = getForcefieldBlocks(p);
 		
@@ -387,7 +393,7 @@ public class ArenaForcefieldManager {
 	/**
 	 * Remove all forcefield blocks
 	 */
-	public void removeAll() {
+	public void removeAllForcefieldBlocks() {
 		// Set all blocks back to it's normal state
 		for(ArenaForcefieldBlock b : this.blocks)
 			b.setState(ForcefieldBlockState.NORMAL);

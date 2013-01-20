@@ -3,9 +3,23 @@ package com.timvisee.simplesurvivalgames.arena;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.World;
+import org.bukkit.entity.Creature;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Projectile;
 
 import com.timvisee.simplesurvivalgames.SSGLocation;
+import com.timvisee.simplesurvivalgames.SimpleSurvivalGames;
+import com.timvisee.simplesurvivalgames.arena.container.ArenaContainerManager;
+import com.timvisee.simplesurvivalgames.arena.forcefield.ArenaForcefieldManager;
+import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayer;
+import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayerBlockManager;
+import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayerManager;
+import com.timvisee.simplesurvivalgames.arena.spawn.ArenaSpawnManager;
 
 public class Arena {
 	
@@ -14,9 +28,8 @@ public class Arena {
 	private String name = "Arena";
 	private String dispName = "Arena";
 	
-	private ArenaState state = ArenaState.WAITING;
+	private ArenaState state = ArenaState.STANDBY;
 	
-	private String world = "world";
 	private ArenaCuboid arenaCuboid = null;
 	private boolean mayLeaveArenaCuboid = false;
 	
@@ -27,12 +40,16 @@ public class Arena {
 	private ArenaSpawnManager spawnManager = new ArenaSpawnManager(this);
 	private ArenaContainerManager containerManager = new ArenaContainerManager(this);
 	
+	private ArenaPlayerBlockManager apb = new ArenaPlayerBlockManager(this);
 	private ArenaPlayerManager pm = new ArenaPlayerManager(this);
 	
 	private double minVotesPercentage = 50;
-	private int gracePeriodLength = 0;
 	private int minPlayers = 0;
 	private int maxPlayers = -1;
+	
+	// Grace time
+	private long gracePeriodLength = 6000;
+	private long gracePeriodUntil = -1;
 	
 	private boolean editMode = false;
 	
@@ -40,10 +57,10 @@ public class Arena {
 	
 	private ArenaForcefieldManager fm = new ArenaForcefieldManager(this);
 	
-	// TODO variables:
-	// Rewards
-	// Arena lobby spawn
-	// Destructable Blocks
+	// TODO: variables:
+	// TODO: Rewards
+	// TODO: Arena lobby spawn
+	// TODO: Destructable Blocks
 	
 	/**
 	 * Constructor
@@ -119,6 +136,16 @@ public class Arena {
 	 */
 	public void setState(ArenaState state) {
 		this.state = state;
+		
+		// Preform any tasks on state changes
+		switch(state) {
+		case LOBBY:
+		case STANDBY:
+			getForcefieldManager().removeAllForcefieldBlocks();
+			break;
+			
+		default:
+		}
 	}
 	
 	/**
@@ -127,7 +154,7 @@ public class Arena {
 	 */
 	public boolean isReady() {
 		// There should be enough players in the lobby
-		if(!hasEnoughtPlayersToStart())
+		if(!hasEnoughPlayers())
 			return false;
 		
 		// There should be enough votes
@@ -142,17 +169,53 @@ public class Arena {
 	 * Start a new arena round
 	 */
 	public void startRound() {
+		// TODO: Reset health
+		// TODO: Reset Exp
+		// TODO: Reset creative & fly
+		// TODO: Reset inventory
+		
+		// Remove all entities from the arena
+		removeEntitiesFromArena();
+		
 		// Reset the player votes
 		getPlayerManager().resetVotes();
 		
 		// Reset the kill count of every player
 		getPlayerManager().resetRoundKills();
 		
+		// Refill the containers
+		getContainerManager().fillConatiners(false);
+		
 		// Set the arena state to PLAYING
 		setState(ArenaState.PLAYING);
 		
 		// Broadcast a start message
-		sendMessage(ChatColor.BLUE + "Arena started!");
+		sendMessage(ChatColor.GOLD + "The arena has been started!");
+		
+		// Activate the grace time
+		if(getGracePeriodLength() > 0)
+			activateGracePeriod(true);
+	}
+	
+	/**
+	 * Check if the arena has enough players, votes, etc to start the new round.
+	 * @return false if not ready to start round, or when not in LOBBY state
+	 */
+	public boolean isReadyToStart() {
+		// Is the arena in lobby mode
+		if(!getState().equals(ArenaState.LOBBY))
+			return false;
+		
+		// At least 2 players has to join, this is already checked by the 'hasEnoughPlayers()' method
+		// Has the arena enough players
+		if(!hasEnoughPlayers())
+			return false;
+		
+		// Has the arena enough votes
+		if(!hasEnoughtVotes())
+			return false;
+		
+		return true;
 	}
 	
 	/**
@@ -168,7 +231,8 @@ public class Arena {
 	 * @param kickSpectators should spectators be kicked
 	 * @return amount of kicked players and spectators (caused by the shop)
 	 */
-	public int endRound(boolean kickSpectators) {		
+	public int endRound(boolean kickSpectators) {
+		
 		// Reset the kill count of every player
 		getPlayerManager().resetRoundKills();
 		
@@ -176,20 +240,20 @@ public class Arena {
 		int kickedPlayers = kickAll(true, kickSpectators);
 		
 		// Set the arena state to WAITING
-		setState(ArenaState.WAITING);
+		setState(ArenaState.STANDBY);
 		
-		// TODO: Broadcast end message
+		// Remove all the changed blocks (by players)
+		getPlayerBlockManager().revertAllBlocks();
+		getPlayerBlockManager().clear();
+		
+		// Refill the static container
+		getContainerManager().fillStaticContainers(false);
+		
+		// Remove all entities from the arena
+		removeEntitiesFromArena();
 		
 		// Return the amount of kicked players and spectators
 		return kickedPlayers;
-	}
-	
-	/**
-	 * Get the name of the current arena world
-	 * @return arena world name
-	 */
-	public String getWorldName() {
-		return this.world;
 	}
 	
 	/**
@@ -197,6 +261,8 @@ public class Arena {
 	 * @return true if set
 	 */
 	public boolean isArenaCuboidSet() {
+		if(arenaCuboid == null)
+			return false;
 		return this.arenaCuboid.isSet();
 	}
 	
@@ -335,7 +401,7 @@ public class Arena {
 	 * @return false if not
 	 */
 	public boolean hasEnoughtVotes() {
-		return (getVotesPercentage() >= getMinVotesPercentage());
+		return (getRemainingPlayerVotesCount() <= 0);
 	}
 	
 	/**
@@ -346,6 +412,10 @@ public class Arena {
 		return this.minVotesPercentage;
 	}
 	
+	public void setMinVotesPercentage(double minVotesPercentage) {
+		this.minVotesPercentage = minVotesPercentage;
+	}
+	
 	/**
 	 * Get the required remaining player votes count to start the arena
 	 * @return required remaining player votes count
@@ -354,33 +424,75 @@ public class Arena {
 		if(getMinVotesPercentage() <= 0)
 			return 0;
 		
-		if(Math.max(getPlayerManager().getPlayerCount(), getMinPlayerCount()) == 0)
+		int players = Math.max(getPlayerManager().getPlayerCount(), getMinPlayerCount());
+		
+		if(players == 0)
 			return 0;
 		
 		double minVotesPercentage = getMinVotesPercentage();
-		double votesPercentage = getVotesPercentage();
-		double votesPercentageEach = 100 / Math.max(getPlayerManager().getPlayerCount(), getMinPlayerCount());
+		double votesCount = getVotesCount();
 		
-		if(minVotesPercentage <= 0 || minVotesPercentage <= votesPercentage)
-			return 0;
+		int votesNeeded = (int) (roundUp(players * (minVotesPercentage/100)) - votesCount);
 		
-		double votesPercentageDelta = minVotesPercentage - votesPercentage;
-		
-		return (int) roundUp(votesPercentageDelta / votesPercentageEach);
+		return Math.max(votesNeeded, 0);
 	}
 	
+	/**
+	 * Round up (ceil) doubles
+	 * @param d the double to round up (ceil)
+	 * @return rounded up number (ceiled)
+	 */
 	private static int roundUp(double d) {  
         return (d > (int) d) ? (int) d + 1 : (int) d;  
-    }  
+    }
 	
-	public void updateVotingStatus() {
-		int remainingPlayersCount = getRemainingPlayerVotesCount();
-		if(remainingPlayersCount == 1)
-			sendMessage(ChatColor.GOLD + String.valueOf(getVotesCount()) + ChatColor.BLUE + " players voted to start! " +
-					ChatColor.GOLD + "1" + ChatColor.BLUE + " more player has to vote!");
-		else
-			sendMessage(ChatColor.GOLD + String.valueOf(getVotesCount()) + ChatColor.BLUE + " players voted to start! " +
-					ChatColor.GOLD + String.valueOf(remainingPlayersCount) + ChatColor.BLUE + " more players have to vote!");
+	/**
+	 * Broadcast the player count to the players and spectators inside the arena
+	 */
+	public void broadcastPlayerCount() {
+		final int minPlayers = getMinPlayerCount();
+		final int players = getPlayerManager().getPlayerCount();
+		final int maxPlayers = getMaxPlayerCount();
+		
+		// Do a different thing for each arena state
+		switch(getState()) {
+		case LOBBY:
+		case STANDBY:
+			if(minPlayers > 0)
+				if(minPlayers > players)
+					sendMessage(ChatColor.BLUE + "There " + (players==1 ? "is " + ChatColor.GOLD + "1" + ChatColor.BLUE + " player" : "are " + ChatColor.GOLD + String.valueOf(players) + ChatColor.BLUE + " players") + " in the arena. " +
+							ChatColor.GOLD + (minPlayers-players==1 ? "1" + ChatColor.BLUE + " more player" : String.valueOf(minPlayers-players) + ChatColor.BLUE + " more players") + " needed to join!");
+				else
+					sendMessage(ChatColor.BLUE + "There " + (players==1 ? "is " + ChatColor.GOLD + "1" + ChatColor.BLUE + " player" : "are " + ChatColor.GOLD + String.valueOf(players) + ChatColor.BLUE + " players") + " in the arena. " +
+							ChatColor.GOLD + (maxPlayers-players==1 ? "1" + ChatColor.BLUE + " more player" : String.valueOf(maxPlayers-players) + ChatColor.BLUE + " more players") + " can join.");
+			else
+				if(maxPlayers > 0)
+					sendMessage(ChatColor.BLUE + "There " + (players==1 ? "is " + ChatColor.GOLD + "1" + ChatColor.BLUE + " player" : "are " + ChatColor.GOLD + String.valueOf(players) + ChatColor.BLUE + " players") + " in the arena. " +
+						ChatColor.GOLD + (maxPlayers-players==1 ? "1" + ChatColor.BLUE + " more player" : String.valueOf(maxPlayers-players) + ChatColor.BLUE + " more players") + " can join.");
+				else
+					sendMessage(ChatColor.BLUE + "There " + (players==1 ? "is " + ChatColor.GOLD + "1" + ChatColor.BLUE + " player" : "are " + ChatColor.GOLD + String.valueOf(players) + ChatColor.BLUE + " players") + " in the arena.");
+			return;
+		
+		case PLAYING:
+		case STARTING:
+			sendMessage(ChatColor.BLUE + "There " + (players==1 ? "is " + ChatColor.GOLD + "1" + ChatColor.BLUE + " player" : "are " + ChatColor.GOLD + String.valueOf(players) + ChatColor.BLUE + " players") + " in the arena.");
+			return;
+		}
+	}
+	
+	/**
+	 * Broadcast the voting status to the players and spectators inside the arena
+	 */
+	public void broadcastVotingStatus() {
+		// Get some common used values and put them in variables
+		final int votesCount = getVotesCount();
+		final int remainingPlayersCount = getRemainingPlayerVotesCount();
+		
+		// Send a message to every player with the current voting status
+		sendMessage(ChatColor.GOLD + (votesCount==1 ? "1" + ChatColor.BLUE + " player" : String.valueOf(votesCount) + ChatColor.BLUE + " players") + " voted to start! " +
+					ChatColor.GOLD + (remainingPlayersCount==1 ? "1" + ChatColor.BLUE + " more player has" : String.valueOf(remainingPlayersCount) + ChatColor.BLUE + " more players have") + " to vote!");
+		
+		// Show a vote instruction message to
 		for(ArenaPlayer entry : getPlayerManager().getPlayers())
 			if(!entry.hasVoted())
 				entry.sendMessage(ChatColor.BLUE + "Use " + ChatColor.GOLD + "/sg vote" + ChatColor.BLUE + " to vote start the arena");
@@ -394,23 +506,11 @@ public class Arena {
 	}
 	
 	/**
-	 * Get the grace period length
-	 * @return grace period length
+	 * Get the ArenaPlayerBlockManager
+	 * @return the ArenaPlayerBlockManager
 	 */
-	public int getGracePeriodLength() {
-		return this.gracePeriodLength;
-	}
-	
-	/**
-	 * Set the grace period length
-	 * @param time grace period length in seconds
-	 */
-	public void setGracePeriodLength(int time) {
-		// Make sure the time is not below zero
-		if(time < 0)
-			time = 0;
-			
-		this.gracePeriodLength = time;
+	public ArenaPlayerBlockManager getPlayerBlockManager() {
+		return this.apb;
 	}
 	
 	/**
@@ -460,8 +560,17 @@ public class Arena {
 	 * @return min amount of used slots
 	 */
 	public int getMinPlayerCount() {
-		// Make sure the amount won't bet bellow 0
-		return Math.max(Math.min(this.minPlayers, getMaxPlayerCount()), 0);
+		// Make sure the amount won't bet bellow 2
+		return Math.max(Math.min(this.minPlayers, getMaxPlayerCount()), 2);
+	}
+	
+	/**
+	 * Get the minimum amount of used slots in a round
+	 * @return min amount of used slots
+	 */
+	public int getMinPlayerCountConfig() {
+		// Return the minPlayers from the config
+		return this.minPlayers;
 	}
 	
 	/**
@@ -478,7 +587,7 @@ public class Arena {
 	 * Are there enough players inside the arena to start the round
 	 * @return false if not
 	 */
-	public boolean hasEnoughtPlayersToStart() {
+	public boolean hasEnoughPlayers() {
 		return (getAssignedSpawnsCount() >= getMinPlayerCount());
 	}
 	
@@ -511,12 +620,16 @@ public class Arena {
 	 * @return max allowed amount of players, negative for infinite
 	 */
 	public int getMaxPlayerCount() {
-		int maxSlots = this.maxPlayers;
-		
-		if(maxSlots > getSpawnManager().getSpawnCount() || maxSlots <= 0)
-			maxSlots = getSpawnManager().getSpawnCount();
-		
-		return maxSlots;
+		return Math.max(Math.min(this.maxPlayers, getSpawnManager().getSpawnCount()), -1);
+	}
+	
+	/**
+	 * Get the maximum allowed amount of players in the arena
+	 * @return max allowed amount of players, negative for infinite
+	 */
+	public int getMaxPlayerCountConfig() {
+		// Return the max players from the config
+		return this.maxPlayers;
 	}
 	
 	/**
@@ -527,6 +640,130 @@ public class Arena {
 		if(maxPlayers <= 0)
 			maxPlayers = -1;
 		this.maxPlayers = maxPlayers;
+	}
+	
+	/**
+	 * Get the grace period length
+	 * @return grace period length
+	 */
+	public long getGracePeriodLength() {
+		return this.gracePeriodLength;
+	}
+	
+	/**
+	 * Set the grace period length
+	 * @param time grace period length in seconds
+	 */
+	public void setGracePeriodLength(int time) {
+		// Make sure the time is not below zero
+		this.gracePeriodLength = Math.max(time, 0);
+	}
+	
+	/**
+	 * Is the grace period currently activated
+	 * @return false if not
+	 */
+	public boolean isGracePeriodActive() {
+		return (this.gracePeriodUntil != -1 && this.gracePeriodUntil > System.currentTimeMillis());
+	}
+	
+	/**
+	 * Get the grace period time left
+	 * @return time left, 0 when grace time was never activated. Time can be negative.
+	 */
+	public long getGracePeriodTimeLeft() {
+		if(this.gracePeriodUntil == -1)
+			return 0;
+		
+		return this.gracePeriodUntil - System.currentTimeMillis();
+	}
+
+	/**
+	 * Activate the grace period
+	 */
+	public void activateGracePeriod() {
+		activateGracePeriod(true);
+	}
+	
+	/**
+	 * Activate the grace period
+	 * @param showMessages show messages
+	 */
+	public void activateGracePeriod(boolean showMessages) {
+		if(showMessages) {
+			sendMessage(ChatColor.GOLD + "Grace time started! " + String.valueOf((int) (getGracePeriodLength() / 1000)) + " seconds left!");
+			
+			for(int i = 90; i <= 300; i+=30) {
+				if((this.getGracePeriodLength() / 1000) - 1 < i)
+					break;
+				
+				final int time = i;
+				Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(SimpleSurvivalGames.instance, new Runnable() {
+					public void run() {
+						sendMessage(ChatColor.GOLD + "Grace time active! " + String.valueOf(time) + " seconds left!");
+					}
+				}, (this.gracePeriodLength / 1000 - i) * 20);
+			}
+			
+			for(int i = 30; i <= 75; i+=15) {
+				if((this.getGracePeriodLength() / 1000) - 1 < i)
+					break;
+				
+				final int time = i;
+				Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(SimpleSurvivalGames.instance, new Runnable() {
+					public void run() {
+						sendMessage(ChatColor.GOLD + "Grace time active! " + String.valueOf(time) + " seconds left!");
+					}
+				}, (this.gracePeriodLength / 1000 - i) * 20);
+			}
+			
+			for(int i = 10; i <= 25; i+=5) {
+				if((this.getGracePeriodLength() / 1000) - 1 < i)
+					break;
+				
+				final int time = i;
+				Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(SimpleSurvivalGames.instance, new Runnable() {
+					public void run() {
+						sendMessage(ChatColor.GOLD + "Grace time active! " + String.valueOf(time) + " seconds left!");
+					}
+				}, (this.gracePeriodLength / 1000 - i) * 20);
+			}
+			
+			for(int i = 1; i <= 5; i++) {
+				if((this.getGracePeriodLength() / 1000) - 1 < i)
+					break;
+				
+				final int time = i;
+				Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(SimpleSurvivalGames.instance, new Runnable() {
+					public void run() {
+						sendMessage(ChatColor.GOLD + "Grace time active! " + String.valueOf(time) + " seconds left!");
+					}
+				}, (this.gracePeriodLength / 1000 - i) * 20);
+			}
+			
+			Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(SimpleSurvivalGames.instance, new Runnable() {
+				public void run() {
+					sendMessage(ChatColor.GOLD + "The grace time ended! Hack and Slash time!");
+				}
+			}, (this.gracePeriodLength / 1000) * 20);
+		}
+		
+		// Activate the grace time
+		this.gracePeriodUntil = System.currentTimeMillis() + this.gracePeriodLength;
+	}
+	
+	/**
+	 * Disable the grace period
+	 */
+	public void disableGracePeriod() {
+		resetGracePeriod();
+	}
+	
+	/**
+	 * Reset the grace period
+	 */
+	public void resetGracePeriod() {
+		this.gracePeriodUntil = -1;
 	}
 	
 	/**
@@ -543,6 +780,93 @@ public class Arena {
 	 */
 	public void setEditMode(boolean enabled) {
 		this.editMode = enabled;
+	}
+	
+	/**
+	 * Remove all entities from the arena
+	 */
+	public void removeEntitiesFromArena() {
+		removeEntitiesFromArena(true, true, true);
+	}
+	
+	/**
+	 * Remove entities from the arena
+	 * @param items remove items
+	 * @param creatures remove mobs
+	 * @param projectiles remove projectiles
+	 */
+	public void removeEntitiesFromArena(boolean items, boolean creatures, boolean projectiles) {
+		// The arena cuboid has to be set
+		if(!isArenaCuboidSet())
+			return;
+		
+		// Loop through all the entities, if they are inside the arena, remove them
+		World w = getArenaCuboid().getWorld();
+		ArenaCuboid cuboid = getArenaCuboid();
+		for(Entity e : w.getEntities()) {
+			if(items && e instanceof Item)
+				if(cuboid.isInsideCuboid(e.getLocation()))
+					e.remove();
+			
+			if(creatures && e instanceof Creature)
+				if(cuboid.isInsideCuboid(e.getLocation()))
+					e.remove();
+			
+			if(projectiles && e instanceof Projectile)
+				if(cuboid.isInsideCuboid(e.getLocation()))
+					e.remove();
+		}
+	}
+	
+	/**
+	 * Remove all the items from the arena
+	 */
+	public void removeItemsFromArena() {
+		// The arena cuboid has to be set
+		if(!isArenaCuboidSet())
+			return;
+		
+		// Loop through all the entities, if they are inside the arena, remove them
+		World w = getArenaCuboid().getWorld();
+		ArenaCuboid cuboid = getArenaCuboid();
+		for(Entity e : w.getEntities())
+			if(e instanceof Item)
+				if(cuboid.isInsideCuboid(e.getLocation()))
+					e.remove();
+	}
+	
+	/**
+	 * Remove all the creature from the arena
+	 */
+	public void removeCreaturesFromArena() {
+		// The arena cuboid has to be set
+		if(!isArenaCuboidSet())
+			return;
+		
+		// Loop through all the entities, if they are inside the arena, remove them
+		World w = getArenaCuboid().getWorld();
+		ArenaCuboid cuboid = getArenaCuboid();
+		for(Entity e : w.getEntities())
+			if(e instanceof LivingEntity)
+				if(cuboid.isInsideCuboid(e.getLocation()))
+					e.remove();
+	}
+	
+	/**
+	 * Remove all the projectiles from the arena
+	 */
+	public void removeProjectilesFromArena() {
+		// The arena cuboid has to be set
+		if(!isArenaCuboidSet())
+			return;
+		
+		// Loop through all the entities, if they are inside the arena, remove them
+		World w = getArenaCuboid().getWorld();
+		ArenaCuboid cuboid = getArenaCuboid();
+		for(Entity e : w.getEntities())
+			if(e instanceof Projectile)
+				if(cuboid.isInsideCuboid(e.getLocation()))
+					e.remove();
 	}
 	
 	/**
@@ -564,6 +888,12 @@ public class Arena {
 		// Remove any slashes from the command
 		if(command.startsWith("/"))
 			command = command.substring(1);
+		
+		// Simple Survival Games commands are allowed
+		if(command.equalsIgnoreCase("sg") || command.equalsIgnoreCase("ssg") ||
+				command.equalsIgnoreCase("hg") || command.equalsIgnoreCase("shg") ||
+				command.equalsIgnoreCase("simplesurvivalgames") || command.equalsIgnoreCase("simplehungergames"))
+			return true;
 		
 		// Return if the command is allowed
 		return this.allowedCommands.contains(command);

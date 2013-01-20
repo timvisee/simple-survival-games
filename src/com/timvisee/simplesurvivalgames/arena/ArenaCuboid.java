@@ -2,13 +2,15 @@ package com.timvisee.simplesurvivalgames.arena;
 
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 
 import com.timvisee.simplesurvivalgames.SSGLocation;
+import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayer;
 
 public class ArenaCuboid {
 	
-	SSGLocation corner1, corner2 = null;
+	private SSGLocation corner1, corner2 = null;
 	
 	/**
 	 * Constructor
@@ -150,7 +152,7 @@ public class ArenaCuboid {
 	}
 	
 	/**
-	 * Check if a location is inside thye cuboid
+	 * Check if a location is inside the cuboid
 	 * @param loc the location to check
 	 * @return true if inside cuboid
 	 */
@@ -161,6 +163,15 @@ public class ArenaCuboid {
 		
 		// Check the coords
 		return isInsideCuboid(loc.getX(), loc.getY(), loc.getZ());
+	}
+	
+	/**
+	 * Check if a block is inside the cuboid
+	 * @param block the block to check
+	 * @return true if inside cuboid
+	 */
+	public boolean isInsideCuboid(Block block) {
+		return isInsideCuboid(block.getLocation());
 	}
 	
 	/**

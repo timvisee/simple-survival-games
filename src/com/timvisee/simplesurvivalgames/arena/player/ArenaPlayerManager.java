@@ -1,12 +1,19 @@
-package com.timvisee.simplesurvivalgames.arena;
+package com.timvisee.simplesurvivalgames.arena.player;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffect;
 
 import com.timvisee.simplesurvivalgames.SimpleSurvivalGames;
+import com.timvisee.simplesurvivalgames.arena.Arena;
+import com.timvisee.simplesurvivalgames.arena.ArenaManager;
+import com.timvisee.simplesurvivalgames.arena.ArenaState;
 
 public class ArenaPlayerManager {
 
@@ -50,15 +57,47 @@ public class ArenaPlayerManager {
 		ArenaPlayer ap = new ArenaPlayer(p);
 		this.players.add(ap);
 		
+		// Save the player state
+		ap.storePlayerState();
+		
+		// Set the state of the player
+		p.setHealth(p.getMaxHealth());
+		p.setFoodLevel(20);
+		p.setTotalExperience(0);
+		p.setGameMode(GameMode.SURVIVAL);
+		p.setAllowFlight(false);
+		p.setFlying(false);
+		p.setFireTicks(0);
+		p.getInventory().clear();
+		p.getInventory().setArmorContents(new ItemStack[]{null, null, null, null});
+		for(PotionEffect effect : p.getActivePotionEffects())
+			p.removePotionEffect(effect.getType());
+		
 		// Show message to the player
 		p.sendMessage(ChatColor.BLUE + "You joined the arena " + ChatColor.GOLD + getArena().getDisplayName() + ChatColor.BLUE + "!");
 		
-		// Show a message about the voting percentage
-		getArena().updateVotingStatus();
+		// Broadcast a player count status message
+		getArena().broadcastPlayerCount();
 		
-		// TODO: Update arena state
+		// Broadcast the voting status if in the arena is in LOBBY state
+		if(getArena().getState().equals(ArenaState.LOBBY) || getArena().getState().equals(ArenaState.STANDBY))
+			getArena().broadcastVotingStatus();
+		
 		// TODO: Show status message
 		
+		// Hide all the spectators
+		for(ArenaPlayer entry : getSpectators())
+			p.hidePlayer(entry.getPlayer());
+		
+		// Update the arena state to LOBBY if the state was WAITING
+		if(getArena().getState().equals(ArenaState.STANDBY))
+			getArena().setState(ArenaState.LOBBY);
+		
+		// Start the arena if it's possible
+		if(getArena().isReadyToStart())
+			getArena().startRound();
+		
+		// Return the new ArenaPlayer object
 		return ap;
 	}
 	
@@ -222,18 +261,24 @@ public class ArenaPlayerManager {
 	
 	/**
 	 * Kick a player form the arena
-	 * @param p
+	 * @param p the player to kick
+	 * @param checkIfPlayerWon Should be checked if any player won
 	 */
-	public void kickPlayer(Player p) {
+	public void kickPlayer(Player p, boolean checkIfPlayerWon) {
 		// Select all the player instances to kick
 		List<ArenaPlayer> kick = new ArrayList<ArenaPlayer>();
 		for(ArenaPlayer ap : this.players)
-			if(ap.getPlayer().equals(p))
-				kick.add(ap);
+			if(ap != null)
+				if(ap.getPlayer().equals(p))
+					kick.add(ap);
 		
 		// Show message to the player
 		if(kick.size() > 0)
 			p.sendMessage(ChatColor.BLUE + "You left the arena " + ChatColor.GOLD + getArena().getDisplayName() + ChatColor.BLUE + "!");
+		
+		// Remove the forcefield blocks for all the players which are going to be kicked
+		for(ArenaPlayer ap : kick)
+			getArena().getForcefieldManager().removeForcefieldBlocks(ap.getPlayer());
 		
 		// Kick the selected player instances
 		this.players.removeAll(kick);
@@ -246,35 +291,83 @@ public class ArenaPlayerManager {
 			else
 				getArena().sendMessage(ChatColor.GOLD + p.getName() + ChatColor.BLUE + " left the arena! " +
 						ChatColor.GOLD + String.valueOf(getPlayerCount()) + ChatColor.BLUE + " players left.");
+			
+			// Broadcast the player status
+			getArena().broadcastPlayerCount();
+			
+			// Broadcast the voting status if in the lobby
+			if(getArena().getState().equals(ArenaState.LOBBY))
+				getArena().broadcastVotingStatus();
 		}
 		
-		
-		// TODO: Update arena state
 		// TODO: Show status message
 		
-		// TODO: Leaving code(p);
-		// TODO: Arena players too
-		// TODO: Update arena state
-		// TODO: Show status message
+		// If the player count equals to zero, the player won
+		if(checkIfPlayerWon && getPlayerCount() == 1 &&
+				!getArena().getState().equals(ArenaState.STANDBY) &&
+				!getArena().getState().equals(ArenaState.LOBBY)) {
+			
+			ArenaPlayer winner = getPlayers().get(0);
+
+			Bukkit.getServer().broadcastMessage(ChatColor.GOLD + String.valueOf(winner.getPlayer().getName()) + ChatColor.BLUE + " won the game in " +
+						ChatColor.GOLD + String.valueOf(getArena().getDisplayName()) + ChatColor.BLUE + " with " +
+						ChatColor.GOLD + String.valueOf(winner.getRoundKills()) + ChatColor.BLUE + " kills!");
+			Bukkit.getServer().broadcastMessage(ChatColor.BLUE + "Use " + ChatColor.GOLD + "/sg join " + getArena().getName() +
+					ChatColor.BLUE + " to join the new round!");
+			
+			kickPlayer(winner.getPlayer(), false);
+			
+			// TODO: Give rewards
+			// TODO: Change msg and do stuff for the player who won
+		}
+		
+		// If the arena state is WAITING and when no players are in, end the round.
+		if(getPlayerCount() == 0)
+			getArena().endRound();
+		
+		// Restore the player states
+		for(ArenaPlayer ap : kick) {
+			ap.revertPlayerState();
+			ap.getPlayer().setFireTicks(0);
+		}
+		
+		// Show all the spectators again
+		for(ArenaPlayer entry : getSpectators())
+			p.showPlayer(entry.getPlayer());
+		
+		// Start the arena if it's possible
+		if(getArena().isReadyToStart())
+			getArena().startRound();
 	}
 	
 	/**
 	 * Kick a list of players
 	 * @param players the players to kick
+	 * @param checkIfPlayerWon Should be checked if any player won
 	 */
-	public void kickPlayers(List<ArenaPlayer> players) {
+	public void kickPlayers(List<ArenaPlayer> players, boolean checkIfPlayerWon) {
+		if(players == null)
+			return;
+		
+		List<Player> playersToKick = new ArrayList<Player>();
+		
 		for(ArenaPlayer p : players)
-			if(isPlayer(p))
-				kickPlayer(p.getPlayer());
+			if(p != null)
+				playersToKick.add(p.getPlayer());
+			
+		for(Player p : playersToKick)
+			if(p != null)
+				kickPlayer(p, checkIfPlayerWon);
 	}
 	
 	/**
 	 * Kick a list of players
 	 * @param players the players to kick
+	 * @param checkIfPlayerWon Should be checked if any player won
 	 */
-	public void kickBukkitPlayers(List<Player> players) {
+	public void kickBukkitPlayers(List<Player> players, boolean checkIfPlayerWon) {
 		for(Player p : players)
-			kickPlayer(p);
+			kickPlayer(p, checkIfPlayerWon);
 	}
 	
 	/**
@@ -283,7 +376,7 @@ public class ArenaPlayerManager {
 	 */
 	public int kickAllPlayers() {
 		int playerCount = getPlayerCount();
-		kickPlayers(this.players);
+		kickPlayers(this.players, false);
 		return playerCount;
 	}
 	
@@ -305,11 +398,31 @@ public class ArenaPlayerManager {
 		ArenaPlayer ap = new ArenaPlayer(p);
 		this.spectators.add(ap);
 		
+		// Save the player state
+		ap.storePlayerState();
+		
+		// Set the state of the player
+		p.setHealth(p.getMaxHealth());
+		p.setTotalExperience(0);
+		p.setGameMode(GameMode.SURVIVAL);
+		p.setFoodLevel(20);
+		p.setTotalExperience(0);
+		p.setAllowFlight(true);
+		p.setFlying(true);
+		p.setFireTicks(0);
+		p.getInventory().clear();
+		for(PotionEffect effect : p.getActivePotionEffects())
+			p.removePotionEffect(effect.getType());
+		
 		// Reset the votes of this player
 		ap.resetVote();
 		
 		// Show message to the player
 		p.sendMessage(ChatColor.BLUE + "You are now spectating the arena " + ChatColor.GOLD + getArena().getDisplayName() + ChatColor.BLUE + "!");
+		
+		// Hide this spectator for other players
+		for(ArenaPlayer entry : getPlayers())
+			entry.getPlayer().hidePlayer(p);
 		
 		// TODO: Update arena state
 		// TODO: Show status message
@@ -397,11 +510,22 @@ public class ArenaPlayerManager {
 		// Select all the player instances to kick
 		List<ArenaPlayer> kick = new ArrayList<ArenaPlayer>();
 		for(ArenaPlayer ap : this.spectators)
-			if(ap.getPlayer().equals(p))
-				kick.add(ap);
+			if(ap != null)
+				if(ap.getPlayer().equals(p))
+					kick.add(ap);
 		
 		// Kick the selected player instances
 		this.spectators.removeAll(spectators);
+
+		// Remove the forcefield blocks for all the players which are going to be kicked
+		for(ArenaPlayer ap : kick)
+			getArena().getForcefieldManager().removeForcefieldBlocks(ap.getPlayer());
+		
+		// Restore the player states
+		for(ArenaPlayer ap : kick) {
+			ap.revertPlayerState();
+			ap.getPlayer().setFireTicks(0);
+		}
 		
 		// Show message to the player
 		if(kick.size() > 0) {
@@ -411,9 +535,9 @@ public class ArenaPlayerManager {
 			getArena().sendMessage(ChatColor.GOLD + p.getName() + ChatColor.BLUE + " isn't spectating anymore!");
 		}
 		
-		// TODO: Check if player won
-		// TODO: Leaving code (check if player is spectator!)
-		// TODO: For arena players too!!
+		// Show the spectator for all the players again
+		for(ArenaPlayer entry : getPlayers())
+			entry.getPlayer().showPlayer(p);
 	}
 	
 	/**
@@ -421,9 +545,15 @@ public class ArenaPlayerManager {
 	 * @param spectators spectators to kick
 	 */
 	public void kickSpectators(List<ArenaPlayer> spectators) {
+		List<Player> playersToKick = new ArrayList<Player>();
+		
 		for(ArenaPlayer p : spectators)
-			if(isSpectator(p))
-				kickSpectator(p.getPlayer());
+			if(p != null)
+				playersToKick.add(p.getPlayer());
+		
+		for(Player p : playersToKick)
+			if(p != null)
+				kickSpectator(p);
 	}
 	
 	/**
@@ -545,16 +675,12 @@ public class ArenaPlayerManager {
 		int amountKicked = 0;
 		
 		// Should players be kicked
-		if(kickPlayers) {
-			amountKicked += getPlayerCount();
-			kickAllPlayers();
-		}
+		if(kickPlayers)
+			amountKicked += kickAllPlayers();
 		
 		// Should spectators be kicked
-		if(kickSpectators) {
-			amountKicked += getSpectatorCount();
-			kickAllSpectators();
-		}
+		if(kickSpectators)
+			amountKicked += kickAllSpectators();
 		
 		// Return amount of kicked players and spectators
 		return amountKicked;

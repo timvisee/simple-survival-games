@@ -1,4 +1,4 @@
-package com.timvisee.simplesurvivalgames.arena;
+package com.timvisee.simplesurvivalgames.arena.container;
 
 import org.bukkit.block.Block;
 import org.bukkit.block.ContainerBlock;
@@ -6,16 +6,20 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import com.timvisee.simplesurvivalgames.SSGLocation;
+import com.timvisee.simplesurvivalgames.arena.Arena;
 
+@SuppressWarnings("deprecation")
 public class ArenaContainer {
 	
+	Arena arena;
 	private SSGLocation loc;
 	
 	/**
 	 * Constructor
 	 * @param loc chest location
 	 */
-	public ArenaContainer(SSGLocation loc) {
+	public ArenaContainer(Arena arena, SSGLocation loc) {
+		this.arena = arena;
 		this.loc = loc;
 	}
 	
@@ -23,8 +27,17 @@ public class ArenaContainer {
 	 * Constructor
 	 * @param container container location
 	 */
-	public ArenaContainer(Block container) {
+	public ArenaContainer(Arena arena, Block container) {
+		this.arena = arena;
 		this.loc = new SSGLocation(container.getLocation());
+	}
+	
+	/**
+	 * Get the arena
+	 * @return
+	 */
+	public Arena getArena() {
+		return this.arena;
 	}
 	
 	/**
@@ -47,7 +60,6 @@ public class ArenaContainer {
 	 * Get the current container
 	 * @return the container
 	 */
-	@SuppressWarnings("deprecation")
 	public ContainerBlock getContainerBlock() {
 		// Get the container block, the block may not be null
 		Block b = getBlock();
@@ -55,9 +67,27 @@ public class ArenaContainer {
 			return null;
 		
 		// Convert the block to a control and return
-		return (ContainerBlock) b.getState();
+		if(b.getState() instanceof ContainerBlock)
+			return (ContainerBlock) b.getState();
+		return null;
 	}
 
+	/**
+	 * Get the inventory holder
+	 * @return inventory holder
+	 */
+	public InventoryHolder getInventoryHolder() {
+		// Get the inventory holder of the block, the block may not be null
+		Block b = getBlock();
+		if(b == null)
+			return null;
+
+		// Convert the block to an inventory holder
+		if(b.getState() instanceof InventoryHolder)
+			return (InventoryHolder) b.getState();
+		return null;
+	}
+	
 	/**
 	 * Get the container contents
 	 * @return container contents
@@ -79,7 +109,7 @@ public class ArenaContainer {
 	 */
 	public boolean setContents(ItemStack[] newContents) {
 		// Get the container and cast it to an inventory holder, make sure it's not null
-		InventoryHolder invHolder = getContainerBlock();
+		InventoryHolder invHolder = getInventoryHolder();
 		if(invHolder == null)
 			return false;
 		
@@ -92,9 +122,7 @@ public class ArenaContainer {
 	 * Refill the container
 	 * @return the new container contents
 	 */
-	public ItemStack[] refill() {
-		// TODO REFILL FUNCTION
-		
+	public ItemStack[] fill() {
 		return new ItemStack[]{};
 	}
 	

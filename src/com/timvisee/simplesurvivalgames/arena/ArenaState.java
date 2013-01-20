@@ -2,26 +2,26 @@ package com.timvisee.simplesurvivalgames.arena;
 
 public enum ArenaState {
 	
-	WAITING(0),
-	PLAYING(1),
-	LOBBY(2);
+	STANDBY("STANDBY"),
+	STARTING("STARTING"),
+	PLAYING("PLAYING"),
+	LOBBY("LOBBY");
 	
-	private int id;
+	private String name;
 	
 	/**
 	 * Constructor
-	 * @param id state id
+	 * @param name state name
 	 */
-	ArenaState(int id) {
-		this.id = id;
+	ArenaState(String name) {
+		this.name = name;
 	}
 	
 	/**
-	 * Get the state id
-	 * @return state id
+	 * Get the name of the state
+	 * @return name of the state
 	 */
-	private int getId() {
-		return this.id;
+	public String getName() {
+		return this.name;
 	}
-	
 }

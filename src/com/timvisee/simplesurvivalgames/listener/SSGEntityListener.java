@@ -5,16 +5,32 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 
 import com.timvisee.simplesurvivalgames.SimpleSurvivalGames;
 import com.timvisee.simplesurvivalgames.arena.Arena;
 import com.timvisee.simplesurvivalgames.arena.ArenaManager;
-import com.timvisee.simplesurvivalgames.arena.ArenaPlayer;
+import com.timvisee.simplesurvivalgames.arena.ArenaState;
+import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayer;
 
 public class SSGEntityListener implements Listener {
+	
+	@EventHandler
+	public void onCreatureSpawn(CreatureSpawnEvent event) {
+		Entity e = event.getEntity();
+		ArenaManager am = SimpleSurvivalGames.instance.getArenaManager();
+		
+		// Loop through every arena and check if the entity was spawned inside any arena
+		for(Arena a : am.getArenas())
+			if(a.isArenaCuboidSet())
+				if(!a.getState().equals(ArenaState.STARTING) && !a.getState().equals(ArenaState.PLAYING))
+					if(a.getArenaCuboid().isInsideCuboid(e.getLocation()))
+						event.setCancelled(true);
+	}
 	
 	@EventHandler
 	public void onEntityDamage(EntityDamageEvent event) {
@@ -25,9 +41,16 @@ public class SSGEntityListener implements Listener {
 		if(e instanceof Player) {
 			Player p = (Player) e;
 			
-			// Is the current in any arean
+			// Is the current in any arena
 			if(am.isInArena(p)) {
 				ArenaPlayer ap = am.getPlayer(p);
+				
+				// Is the player playing
+				if(ap.isPlaying()) {
+					// Is the grace time active
+					if(ap.getArena().isGracePeriodActive())
+						event.setCancelled(true);
+				}
 				
 				// The player may not get damaged in the lobby or as spectator
 				if(ap.isInLobby() || ap.isSpectator())
@@ -36,6 +59,31 @@ public class SSGEntityListener implements Listener {
 		}
 	}
 
+	@EventHandler
+	public void onEntityTarget(EntityTargetEvent event) {
+		Entity e = event.getEntity();
+		Entity target = event.getTarget();
+		ArenaManager am = SimpleSurvivalGames.instance.getArenaManager();
+		
+		// The entity or the target may not be null
+		if(e == null || target == null)
+			return;
+		
+		// If the target is a player, he may not be targeted if he's in the lobby or when he's a spectator
+		if(target instanceof Player) {
+			Player p = (Player) target;
+			
+			// Is the target player currently in any arena
+			if(am.isInArena(p)) {
+				ArenaPlayer ap = am.getPlayer(p);
+				
+				// The player may not be targeted
+				if(ap.isInLobby() || ap.isSpectator())
+					event.setCancelled(true);
+			}
+		}
+	}
+	
 	@EventHandler
 	public void onFoodLevelChange(FoodLevelChangeEvent event) {
 		Entity e = event.getEntity();
@@ -83,7 +131,8 @@ public class SSGEntityListener implements Listener {
 			// Hide the death message
 			event.setDeathMessage("");
 			
-			// TODO: Check if any player won the match
+			// Make the player an spectator if he's not the only one left
+			arena.getPlayerManager().joinSpectators(p);
 		}
 		
 		// TODO count player kills
