@@ -215,8 +215,10 @@ public class ArenaPlayer {
 		Arena a = getArena();
 		
 		// Make sure the arena is not null
-		if(a == null)
+		if(a == null) {
+			System.out.println("DEBUG: ARENA BUG, ARENA WAS NULL!");
 			return false;
+		}
 		
 		// Is the player a spectator
 		return a.getPlayerManager().isSpectator(this.p);
@@ -419,6 +421,14 @@ public class ArenaPlayer {
 	 */
 	public void resetRoundKills() {
 		this.roundKills = 0;
+	}
+	
+	/**
+	 * Get the original location the player was at
+	 * @return 
+	 */
+	public Location getOriginalLocation() {
+		return this.origLoc;
 	}
 	
 	/**

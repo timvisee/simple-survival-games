@@ -58,7 +58,8 @@ public class ArenaPlayerManager {
 		this.players.add(ap);
 		
 		// Save the player state
-		ap.storePlayerState();
+		if(!ap.isLocationStored())
+			ap.storePlayerState();
 		
 		// Set the state of the player
 		p.setHealth(p.getMaxHealth());
@@ -70,6 +71,7 @@ public class ArenaPlayerManager {
 		p.setFireTicks(0);
 		p.getInventory().clear();
 		p.getInventory().setArmorContents(new ItemStack[]{null, null, null, null});
+		p.setFallDistance(0);
 		for(PotionEffect effect : p.getActivePotionEffects())
 			p.removePotionEffect(effect.getType());
 		
@@ -188,7 +190,7 @@ public class ArenaPlayerManager {
 	 */
 	public boolean isPlayer(Player p) {
 		for(ArenaPlayer ap : getPlayers())
-			if(ap.getPlayer().equals(p))
+			if(ap.getPlayer().getName().equals(p.getName()))
 				return true;
 		return false;
 	}
@@ -269,7 +271,7 @@ public class ArenaPlayerManager {
 		List<ArenaPlayer> kick = new ArrayList<ArenaPlayer>();
 		for(ArenaPlayer ap : this.players)
 			if(ap != null)
-				if(ap.getPlayer().equals(p))
+				if(ap.getPlayer().getName().equals(p.getName()))
 					kick.add(ap);
 		
 		// Show message to the player
@@ -281,6 +283,14 @@ public class ArenaPlayerManager {
 			getArena().getForcefieldManager().removeForcefieldBlocks(ap.getPlayer());
 		
 		// Kick the selected player instances
+		for(int i = 0; i < this.players.size(); i++) {
+			for(int j = 0; j < kick.size(); j++) {
+				if(this.players.get(i).getPlayer().getName().equals(kick.get(j).getPlayer().getName())) {
+					this.players.remove(i);
+					i--;
+				}
+			}
+		}
 		this.players.removeAll(kick);
 		
 		if(kick.size() > 0)	{
@@ -300,7 +310,18 @@ public class ArenaPlayerManager {
 				getArena().broadcastVotingStatus();
 		}
 		
+		// Restore the player states
+		for(ArenaPlayer ap : kick) {
+			ap.revertPlayerState();
+			ap.getPlayer().setFireTicks(0);
+			ap.getPlayer().setFallDistance(0);
+		}
+		
 		// TODO: Show status message
+		
+		// If the arena state is WAITING and when no players are in, end the round.
+		if(getPlayerCount() == 0)
+			getArena().endRound();
 		
 		// If the player count equals to zero, the player won
 		if(checkIfPlayerWon && getPlayerCount() == 1 &&
@@ -315,20 +336,10 @@ public class ArenaPlayerManager {
 			Bukkit.getServer().broadcastMessage(ChatColor.BLUE + "Use " + ChatColor.GOLD + "/sg join " + getArena().getName() +
 					ChatColor.BLUE + " to join the new round!");
 			
-			kickPlayer(winner.getPlayer(), false);
+			kickPlayer(winner.getPlayer(), true);
 			
 			// TODO: Give rewards
 			// TODO: Change msg and do stuff for the player who won
-		}
-		
-		// If the arena state is WAITING and when no players are in, end the round.
-		if(getPlayerCount() == 0)
-			getArena().endRound();
-		
-		// Restore the player states
-		for(ArenaPlayer ap : kick) {
-			ap.revertPlayerState();
-			ap.getPlayer().setFireTicks(0);
 		}
 		
 		// Show all the spectators again
@@ -399,7 +410,8 @@ public class ArenaPlayerManager {
 		this.spectators.add(ap);
 		
 		// Save the player state
-		ap.storePlayerState();
+		if(!ap.isLocationStored())
+			ap.storePlayerState();
 		
 		// Set the state of the player
 		p.setHealth(p.getMaxHealth());
@@ -411,6 +423,8 @@ public class ArenaPlayerManager {
 		p.setFlying(true);
 		p.setFireTicks(0);
 		p.getInventory().clear();
+		p.setFallDistance(0);
+		
 		for(PotionEffect effect : p.getActivePotionEffects())
 			p.removePotionEffect(effect.getType());
 		
@@ -445,7 +459,7 @@ public class ArenaPlayerManager {
 	 */
 	public boolean isSpectator(Player p) {
 		for(ArenaPlayer ap : getSpectators())
-			if(ap.getPlayer().equals(p))
+			if(ap.getPlayer().getName().equals(p.getName()))
 				return true;
 		return false;
 	}
@@ -511,11 +525,20 @@ public class ArenaPlayerManager {
 		List<ArenaPlayer> kick = new ArrayList<ArenaPlayer>();
 		for(ArenaPlayer ap : this.spectators)
 			if(ap != null)
-				if(ap.getPlayer().equals(p))
+				if(ap.getPlayer().getName().equals(p.getName()))
 					kick.add(ap);
 		
 		// Kick the selected player instances
-		this.spectators.removeAll(spectators);
+		for(int i = 0; i < this.spectators.size(); i++) {
+			for(int j = 0; j < kick.size(); j++) {
+				if(this.spectators.get(i).getPlayer().getName().equals(kick.get(0).getPlayer().getName())) {
+					this.spectators.remove(i);
+					
+					i--;
+				}
+			}
+		}
+		this.spectators.removeAll(kick);
 
 		// Remove the forcefield blocks for all the players which are going to be kicked
 		for(ArenaPlayer ap : kick)
@@ -525,6 +548,7 @@ public class ArenaPlayerManager {
 		for(ArenaPlayer ap : kick) {
 			ap.revertPlayerState();
 			ap.getPlayer().setFireTicks(0);
+			ap.getPlayer().setFallDistance(0);
 		}
 		
 		// Show message to the player

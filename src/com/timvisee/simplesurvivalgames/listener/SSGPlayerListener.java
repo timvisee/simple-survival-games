@@ -19,6 +19,7 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerExpChangeEvent;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -464,11 +465,18 @@ public class SSGPlayerListener implements Listener {
 						if(p.isInsideVehicle())
 							p.getVehicle().eject();
 						
+						// Teleport the player
+						p.teleport(newLoc);
+						
 						// Set the players velocity to zero
 						p.setVelocity(new Vector(0, 0, 0));
 						
-						// Teleport the player
-						p.teleport(newLoc);
+						// Put the player back in fly mode
+						p.setAllowFlight(true);
+						p.setFlying(true);
+						
+						// Reset the players fall distance
+						p.setFallDistance(0);
 						
 						// Send a notification message
 						p.sendMessage(ChatColor.DARK_RED + "You may not get out of the arena!");
@@ -508,7 +516,12 @@ public class SSGPlayerListener implements Listener {
 						}
 						if(toLoc != null) {
 							p.teleport(toLoc);
+							
+							p.setAllowFlight(true);
 							p.setFlying(true);
+							
+							// Reset the players fall distance
+							p.setFallDistance(0);
 						}
 					}
 				}
@@ -586,6 +599,31 @@ public class SSGPlayerListener implements Listener {
 	}
 	
 	@EventHandler
+	public void onPlayerKick(PlayerKickEvent event) {
+		Player p = event.getPlayer();
+		ArenaManager am = SimpleSurvivalGames.instance.getArenaManager();
+		
+		// Make sure the player is not null
+		if(p == null)
+			return;
+		
+		// Make sure the event was not cancelled
+		if(event.isCancelled())
+			return;
+		
+		// Is the current in any arena
+		if(am.isInArena(p)) {
+			Arena arena = am.getPlayer(p).getArena();
+			
+			// Kick the player out of the arena
+			SimpleSurvivalGames.instance.getArenaManager().kick(p);
+			
+			// Show a message to all players this player died
+			arena.sendMessage(ChatColor.GOLD + p.getName() + ChatColor.DARK_RED + " lost connection!");
+		}
+	}
+	
+	@EventHandler
 	public void onPlayerShearEntity(PlayerShearEntityEvent event) {
 		Player p = event.getPlayer();
 		ArenaManager am = SimpleSurvivalGames.instance.getArenaManager();
@@ -618,7 +656,6 @@ public class SSGPlayerListener implements Listener {
 	public void onPlayerTeleport(PlayerTeleportEvent event) {
 		Player p = event.getPlayer();
 		TeleportCause cause = event.getCause();
-		Location from = event.getFrom();
 		Location to = event.getTo();
 		ArenaManager am = SimpleSurvivalGames.instance.getArenaManager();
 		

@@ -1,11 +1,16 @@
 package com.timvisee.simplesurvivalgames.listener;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
@@ -16,6 +21,7 @@ import com.timvisee.simplesurvivalgames.arena.Arena;
 import com.timvisee.simplesurvivalgames.arena.ArenaManager;
 import com.timvisee.simplesurvivalgames.arena.ArenaState;
 import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayer;
+import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayerManager;
 
 public class SSGEntityListener implements Listener {
 	
@@ -55,6 +61,33 @@ public class SSGEntityListener implements Listener {
 				// The player may not get damaged in the lobby or as spectator
 				if(ap.isInLobby() || ap.isSpectator())
 					event.setCancelled(true);
+			}
+		}
+	}
+	
+	@EventHandler
+	public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+		Entity e = event.getEntity();
+		ArenaManager am = SimpleSurvivalGames.instance.getArenaManager();
+		Entity damager = event.getDamager();
+		
+		// Is the entity a player
+		if(damager instanceof Player) {
+			Player dmg = (Player) damager;
+			
+			// Is the current in any arena
+			if(am.isInArena(dmg)) {
+				ArenaPlayer apDmg = am.getPlayer(dmg);
+				
+				// Is the damager spectating
+				if(apDmg.isSpectator()) {
+					event.setCancelled(true);
+					
+					if(e instanceof Player)
+						apDmg.sendMessage(ChatColor.DARK_RED + "Do not damage the players!");
+					else
+						apDmg.sendMessage(ChatColor.DARK_RED + "Do not damage the mobs!");
+				}
 			}
 		}
 	}
@@ -121,6 +154,9 @@ public class SSGEntityListener implements Listener {
 			p.sendMessage(ChatColor.DARK_RED + "You died!");
 			// TODO: Show died cause
 			
+			// Store the original loaction of the player
+			Location origLoc = arena.getPlayerManager().getPlayer(p).getOriginalLocation().clone();
+			
 			// Kick the player out of the arena
 			SimpleSurvivalGames.instance.getArenaManager().kick(p);
 			
@@ -133,6 +169,10 @@ public class SSGEntityListener implements Listener {
 			
 			// Make the player an spectator if he's not the only one left
 			arena.getPlayerManager().joinSpectators(p);
+			
+			// Reset the original location of the player
+			if(origLoc != null)
+				arena.getPlayerManager().getPlayer(p).storeLocation(origLoc);
 		}
 		
 		// TODO count player kills

@@ -192,6 +192,11 @@ public class Arena {
 		// Broadcast a start message
 		sendMessage(ChatColor.GOLD + "The arena has been started!");
 		
+		// Make players visible for everybody
+		for(ArenaPlayer p : getPlayerManager().getPlayers())
+			for(ArenaPlayer entry : getPlayerManager().getPlayers())
+				p.getPlayer().showPlayer(entry.getPlayer());
+		
 		// Activate the grace time
 		if(getGracePeriodLength() > 0)
 			activateGracePeriod(true);

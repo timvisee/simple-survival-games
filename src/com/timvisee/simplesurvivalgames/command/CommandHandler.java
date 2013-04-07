@@ -110,7 +110,7 @@ public class CommandHandler {
 						return true;
 					}
 					
-					// Is the player already in another arena
+					// Is the player already in an arena
 					if(am.isInArena(p)) {
 						ArenaPlayer ap = am.getPlayer(p);
 						if(ap.getArena().equals(arena) && ap.isPlaying()) {
@@ -122,13 +122,14 @@ public class CommandHandler {
 							p.sendMessage(ChatColor.DARK_RED + "You can't join another arena while playing!");
 							p.sendMessage(ChatColor.BLUE + "Use " + ChatColor.GOLD + "/sg leave" + ChatColor.BLUE + " to leave the current arena");
 							return true;
-						} else if(ap.isInLobby()) {
+						} else if(ap.getArena().equals(arena) && ap.isInLobby()) {
 							// The player is already in the arena
 							p.sendMessage(ChatColor.BLUE + "You already are in that arena!");
 							return true;
 						} else {
 							// Kick the player out of the current arena so it can join the new one
 							ap.getArena().getPlayerManager().kickPlayer(ap.getPlayer(), true);
+							ap.getArena().getPlayerManager().kickSpectator(ap.getPlayer());
 						}
 					}
 					
@@ -213,13 +214,14 @@ public class CommandHandler {
 							p.sendMessage(ChatColor.DARK_RED + "You can't join another arena while playing!");
 							p.sendMessage(ChatColor.BLUE + "Use " + ChatColor.GOLD + "/sg leave" + ChatColor.BLUE + " to leave the current arena");
 							return true;
-						} else if(ap.isInLobby()) {
+						} else if(ap.getArena().equals(arena) && ap.isInLobby()) {
 							// The player is already in the arena
 							p.sendMessage(ChatColor.BLUE + "You already are in that arena!");
 							return true;
 						} else {
 							// Kick the player out of the current arena so it can join the new one
 							ap.getArena().getPlayerManager().kickPlayer(ap.getPlayer(), true);
+							ap.getArena().getPlayerManager().kickSpectator(ap.getPlayer());
 						}
 					}
 					
@@ -331,6 +333,7 @@ public class CommandHandler {
 						} else {
 							// Kick the player out of the current arena so it can join the new one
 							ap.getArena().getPlayerManager().kickPlayer(ap.getPlayer(), true);
+							ap.getArena().getPlayerManager().kickSpectator(ap.getPlayer());
 						}
 					}
 					
@@ -406,6 +409,7 @@ public class CommandHandler {
 						} else {
 							// Kick the player out of the current arena so it can join the new one
 							ap.getArena().getPlayerManager().kickPlayer(ap.getPlayer(), true);
+							ap.getArena().getPlayerManager().kickSpectator(ap.getPlayer());
 						}
 					}
 					

@@ -352,10 +352,6 @@ public class ArenaContainerItem {
 		if(applyDurability)
 			item.setDurability(getDurability());
 		
-		// Set the item name
-		// TODO: Apply item names
-		if(applyItemName && hasCustomItemName()) { }
-		
 		// Set the item amount
 		if(applyAmount)
 			item.setAmount(Math.min(getAmount(), item.getMaxStackSize()));
@@ -367,11 +363,14 @@ public class ArenaContainerItem {
 				ench.addEnchantment(item, true);
 		}
 		
-		
 		// TODO: Move this up
 		// Set the item data
 		if(applyData)
 			item.setData(new MaterialData(item.getType(), this.data));
+		
+		// Set the item name
+		if(applyItemName && hasCustomItemName())
+			item.getItemMeta().setDisplayName(getItemName());
 		
 		// Return the item
 		return item;
