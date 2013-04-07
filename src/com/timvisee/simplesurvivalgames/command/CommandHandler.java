@@ -1,12 +1,25 @@
 package com.timvisee.simplesurvivalgames.command;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
+
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Effect;
 import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginDescriptionFile;
+import org.bukkit.scoreboard.DisplaySlot;
+import org.bukkit.scoreboard.Objective;
+import org.bukkit.scoreboard.Score;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.ScoreboardManager;
+import org.bukkit.scoreboard.Team;
 
 import com.timvisee.simplesurvivalgames.SSGLocation;
 import com.timvisee.simplesurvivalgames.SSGPlayer;
@@ -26,7 +39,7 @@ public class CommandHandler {
 	public CommandHandler() { }
 	
 	public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
-		
+
 		String fullCommand = "/" + commandLabel + " " + implodeArray(args, " ");
 		
 		// Make sure the command sender used one of the Simple Survival Games commands

@@ -19,6 +19,7 @@ import com.timvisee.simplesurvivalgames.arena.forcefield.ArenaForcefieldManager;
 import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayer;
 import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayerBlockManager;
 import com.timvisee.simplesurvivalgames.arena.player.ArenaPlayerManager;
+import com.timvisee.simplesurvivalgames.arena.scoreboard.ArenaScoreboard;
 import com.timvisee.simplesurvivalgames.arena.spawn.ArenaSpawnManager;
 
 public class Arena {
@@ -57,6 +58,8 @@ public class Arena {
 	
 	private ArenaForcefieldManager fm = new ArenaForcefieldManager(this);
 	
+	private ArenaScoreboard as;
+	
 	// TODO: variables:
 	// TODO: Rewards
 	// TODO: Arena lobby spawn
@@ -68,6 +71,9 @@ public class Arena {
 	 */
 	public Arena(String name) {
 		this.name = name;
+		
+		// Initialize / construct the arena scoreboard
+		this.as = new ArenaScoreboard(this);
 	}
 	
 	/**
@@ -200,6 +206,9 @@ public class Arena {
 		// Activate the grace time
 		if(getGracePeriodLength() > 0)
 			activateGracePeriod(true);
+		
+		// Update the arena scoreboard
+		getArenaScoreboard().update();
 	}
 	
 	/**
@@ -256,6 +265,9 @@ public class Arena {
 		
 		// Remove all entities from the arena
 		removeEntitiesFromArena();
+		
+		// Update the arena scoreboard
+		getArenaScoreboard().update();
 		
 		// Return the amount of kicked players and spectators
 		return kickedPlayers;
@@ -942,6 +954,14 @@ public class Arena {
 	 */
 	public void clearAllowedCommands() {
 		this.allowedCommands.clear();
+	}
+	
+	/**
+	 * Get the arena scoreboard
+	 * @return Arena scoreboard
+	 */
+	public ArenaScoreboard getArenaScoreboard() {
+		return this.as;
 	}
 	
 	/**

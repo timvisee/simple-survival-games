@@ -6,15 +6,21 @@ import java.util.List;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.entity.EntityDamageByBlockEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 
 import com.timvisee.simplesurvivalgames.SimpleSurvivalGames;
 import com.timvisee.simplesurvivalgames.arena.Arena;
@@ -61,6 +67,10 @@ public class SSGEntityListener implements Listener {
 				// The player may not get damaged in the lobby or as spectator
 				if(ap.isInLobby() || ap.isSpectator())
 					event.setCancelled(true);
+				
+				if(event instanceof EntityDamageByEntityEvent) { } else {
+					ap.resetLastDamageByPlayer();
+				}
 			}
 		}
 	}
@@ -88,6 +98,25 @@ public class SSGEntityListener implements Listener {
 					else
 						apDmg.sendMessage(ChatColor.DARK_RED + "Do not damage the mobs!");
 				}
+			}
+		}
+		
+		if(e instanceof Player) {
+			Player p = (Player) e;
+			
+			// Is the current in any arena
+			if(am.isInArena(p)) {
+				ArenaPlayer ap = am.getPlayer(p);
+				
+				if(damager instanceof Player)
+					ap.setLastPlayerDamager((Player) damager);
+				else if(damager instanceof Projectile) {
+					Projectile proj = (Projectile) damager;
+					if(proj.getShooter() != null)
+						if(proj.getShooter() instanceof Player)
+							ap.setLastPlayerDamager((Player) proj.getShooter());
+				} else
+					ap.resetLastDamageByPlayer();
 			}
 		}
 	}
@@ -148,7 +177,23 @@ public class SSGEntityListener implements Listener {
 		
 		// Is the current in any arena
 		if(am.isInArena(p)) {
-			Arena arena = am.getPlayer(p).getArena();
+			ArenaPlayer ap = am.getPlayer(p);
+			Arena arena = ap.getArena();
+			
+			
+			if(ap.isLastDamageByPlayer()) {
+				Player killer = ap.getLastPlayerDamager();
+				
+				if(killer != null) {
+					if(am.isInArena(killer)) {
+						ArenaPlayer apKiller = am.getPlayer(killer);
+						
+						apKiller.addRoundKill();
+						
+						apKiller.getArena().getArenaScoreboard().update();
+					}
+				}
+			}
 			
 			// Show a message to the player he died
 			p.sendMessage(ChatColor.DARK_RED + "You died!");
@@ -159,6 +204,11 @@ public class SSGEntityListener implements Listener {
 			
 			// Kick the player out of the arena
 			SimpleSurvivalGames.instance.getArenaManager().kick(p);
+			
+			if(ap != null) {
+				ap.resetLastDamageByPlayer();
+				ap.resetRoundKills();
+			}
 			
 			// Show a message to all players this player died
 			arena.sendMessage(ChatColor.GOLD + p.getName() + ChatColor.BLUE + " died!");
@@ -176,5 +226,23 @@ public class SSGEntityListener implements Listener {
 		}
 		
 		// TODO count player kills
+	}
+	
+	
+	@EventHandler
+	public void onEntityDamageByBlock(EntityDamageByBlockEvent event) {
+		Entity e = event.getEntity();
+		ArenaManager am = SimpleSurvivalGames.instance.getArenaManager();
+		
+		// Is the entity a player
+		if(e instanceof Player) {
+			Player p = (Player) e;
+			
+			// Is the current in any arean
+			if(am.isInArena(p)) {
+				ArenaPlayer ap = am.getPlayer(p);
+				ap.resetLastDamageByPlayer();
+			}
+		}
 	}
 }

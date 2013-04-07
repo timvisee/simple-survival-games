@@ -98,6 +98,9 @@ public class ArenaPlayerManager {
 		// Start the arena if it's possible
 		if(getArena().isReadyToStart())
 			getArena().startRound();
+
+		// Update the arena scoreboard
+		getArena().getArenaScoreboard().addPlayer(p);
 		
 		// Return the new ArenaPlayer object
 		return ap;
@@ -345,6 +348,10 @@ public class ArenaPlayerManager {
 		// Show all the spectators again
 		for(ArenaPlayer entry : getSpectators())
 			p.showPlayer(entry.getPlayer());
+
+		// Update the arena scoreboard
+		getArena().getArenaScoreboard().removePlayer(p);
+		getArena().getArenaScoreboard().removeViewer(p);
 		
 		// Start the arena if it's possible
 		if(getArena().isReadyToStart())
@@ -440,6 +447,9 @@ public class ArenaPlayerManager {
 		
 		// TODO: Update arena state
 		// TODO: Show status message
+
+		// Update the arena scoreboard
+		getArena().getArenaScoreboard().update();
 		
 		return ap;
 	}
@@ -562,6 +572,9 @@ public class ArenaPlayerManager {
 		// Show the spectator for all the players again
 		for(ArenaPlayer entry : getPlayers())
 			entry.getPlayer().showPlayer(p);
+		
+		// Update the arena scoreboard
+		getArena().getArenaScoreboard().removeViewer(p);
 	}
 	
 	/**

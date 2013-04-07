@@ -37,6 +37,8 @@ public class ArenaPlayer {
 	private List<ItemStack> origInv = null;
 	private List<ItemStack> origInvArmor = null;
 	
+	private Player lastPlayerDamager = null;
+	
 	/**
 	 * Constructor
 	 * @param p the player
@@ -761,6 +763,22 @@ public class ArenaPlayer {
 	 */
 	public void resetStoredInventory() {
 		this.origInv = null;
+	}
+	
+	public Player getLastPlayerDamager() {
+		return this.lastPlayerDamager;
+	}
+	
+	public void setLastPlayerDamager(Player p) {
+		this.lastPlayerDamager = p;
+	}
+	
+	public boolean isLastDamageByPlayer() {
+		return (this.lastPlayerDamager != null);
+	}
+	
+	public void resetLastDamageByPlayer() {
+		this.lastPlayerDamager = null;
 	}
 	
 	/**
