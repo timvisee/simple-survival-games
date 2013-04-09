@@ -8,6 +8,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.material.MaterialData;
 
 public class ArenaContainerItem {
@@ -368,9 +369,12 @@ public class ArenaContainerItem {
 		if(applyData)
 			item.setData(new MaterialData(item.getType(), this.data));
 		
-		// Set the item name
-		if(applyItemName && hasCustomItemName())
-			item.getItemMeta().setDisplayName(getItemName());
+		// Name the item
+		if(applyItemName && hasCustomItemName()) {
+			ItemMeta im = item.getItemMeta();
+			im.setDisplayName(getItemName());
+			item.setItemMeta(im);
+		}
 		
 		// Return the item
 		return item;
